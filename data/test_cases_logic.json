@@ -1,0 +1,67 @@
+{
+  "test_set": "logic",
+  "description": "Cas de test évaluant le raisonnement logique, la résolution de problèmes mathématiques, et la cohérence des inférences du modèle. Inspiré des benchmarks GSM8K et MATH pour les modèles de production.",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "logic_001",
+      "category": "arithmetic_reasoning",
+      "prompt": "A fintech startup processes 12,000 transactions per hour. Each transaction takes 0.3ms to validate. The system has 4 validation servers. What is the maximum throughput per server in transactions per second, and is the current load sustainable?",
+      "expected_output": "Maximum throughput per server: 1/0.0003 = 3,333 transactions per second. Total capacity: 4 × 3,333 = 13,333 transactions/second = 48,000,000 transactions/hour. Current load: 12,000/hour = 3.33 transactions/second per server. Utilization: 3.33/3,333 = 0.1%. The current load is easily sustainable with significant headroom.",
+      "model_output": "Each server can process 1/0.0003 = 3,333 transactions per second. Four servers provide 13,332 TPS total capacity, equivalent to roughly 48 million transactions per hour. The current load of 12,000 transactions per hour represents approximately 0.1% utilization per server. This load is highly sustainable with over 99% capacity remaining.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["3,333|3333", "sustainable|headroom|capacity"],
+        "evaluators": ["similarity", "hallucination"]
+      }
+    },
+    {
+      "id": "logic_002",
+      "category": "conditional_logic",
+      "prompt": "In a fraud detection system: Rule A fires if amount > $10,000 AND account_age < 30 days. Rule B fires if amount > $50,000 OR country is high_risk. If a transaction is $15,000 from a 20-day-old account in a high_risk country, which rules fire and should it be blocked?",
+      "expected_output": "Rule A fires: $15,000 > $10,000 ✓ AND account_age 20 days < 30 days ✓. Rule B fires: $15,000 is NOT > $50,000 ✗ BUT country is high_risk ✓ (OR condition satisfied). Both Rule A and Rule B fire. This transaction should be flagged for manual review or blocked based on the dual rule activation, which indicates elevated fraud risk.",
+      "model_output": "Analysis: Rule A: amount=$15,000 exceeds $10,000 threshold (TRUE) AND account_age=20 days is less than 30 days (TRUE) → Rule A FIRES. Rule B: amount=$15,000 does not exceed $50,000 (FALSE) OR country=high_risk (TRUE) → Rule B FIRES via OR condition. Result: Both rules triggered. Recommendation: BLOCK and escalate to fraud review team. Dual rule activation indicates high-risk transaction.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["Rule A|rule a", "Rule B|rule b", "block|flag|review"],
+        "evaluators": ["similarity", "hallucination"]
+      }
+    },
+    {
+      "id": "logic_003",
+      "category": "sql_reasoning",
+      "prompt": "Given a table `transactions(id, user_id, amount, created_at, status)` with 10M rows, write a SQL query to find users who spent more than $10,000 in the last 30 days. Explain why you chose this approach.",
+      "expected_output": "SELECT user_id, SUM(amount) as total_spent FROM transactions WHERE created_at >= NOW() - INTERVAL '30 days' AND status = 'completed' GROUP BY user_id HAVING SUM(amount) > 10000 ORDER BY total_spent DESC; This uses a date filter first to leverage a created_at index, reducing the dataset before aggregation. The HAVING clause filters after grouping, which is correct for aggregate conditions.",
+      "model_output": "SELECT user_id, SUM(amount) AS total_spent FROM transactions WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '30 days' AND status = 'completed' GROUP BY user_id HAVING SUM(amount) > 10000 ORDER BY total_spent DESC; Approach: filtering on created_at first allows the database to use a btree index on that column, dramatically reducing rows scanned before the expensive GROUP BY aggregation.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["SELECT|select", "GROUP BY|group by", "HAVING|having", "index|filter"],
+        "evaluators": ["similarity", "hallucination"]
+      }
+    },
+    {
+      "id": "logic_004",
+      "category": "algorithmic_complexity",
+      "prompt": "You have an array of 1 million integers. You need to find all pairs that sum to a target value T. Compare the O(n²) brute force vs an O(n) hash-based approach. What is the time difference for n=1,000,000?",
+      "expected_output": "Brute force O(n²): 1,000,000² = 10^12 operations. At 10^9 operations/second, this takes ~1,000 seconds (16+ minutes). Hash-based O(n): 1,000,000 operations. At 10^9 ops/second, this takes ~1 millisecond. The hash approach uses a HashSet: for each element x, check if (T-x) exists in the set. Space complexity increases to O(n) but time improves by a factor of 10^6.",
+      "model_output": "O(n²) brute force: n=10^6, so 10^12 comparisons. At 10^9 ops/sec, estimated runtime ≈ 1000 seconds (~16.7 minutes). O(n) hash approach: iterate once, storing each value in a hash map, check if complement (T - current) exists. Runtime: ~1ms for 10^6 elements. Speed improvement: approximately 1,000,000x faster. Trade-off: O(n) additional memory for the hash table.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["1000|1,000 second|minutes", "hash|hashmap|hash set", "O\\(n\\)|linear"],
+        "evaluators": ["similarity", "hallucination"]
+      }
+    },
+    {
+      "id": "logic_005",
+      "category": "probability_reasoning",
+      "prompt": "A credit scoring model has 95% accuracy. In a portfolio of 100,000 loan applications where 2% are fraudulent, what is the probability that a flagged application is actually fraudulent? Show your work using Bayes' theorem.",
+      "expected_output": "Using Bayes' theorem: P(Fraud) = 0.02, P(Legit) = 0.98, Sensitivity = 0.95 (True Positive Rate), Specificity = 0.95 (True Negative Rate). P(Fraud|Flagged) = P(Flagged|Fraud)×P(Fraud) / P(Flagged). P(Flagged) = (0.95×0.02) + (0.05×0.98) = 0.019 + 0.049 = 0.068. P(Fraud|Flagged) = (0.95×0.02)/0.068 = 0.019/0.068 ≈ 27.9%. Despite 95% model accuracy, only ~28% of flagged cases are truly fraudulent — this is the base rate fallacy.",
+      "model_output": "Applying Bayes' theorem: Prior P(Fraud)=0.02, P(Legitimate)=0.98. True positive rate=0.95, False positive rate=0.05. P(Flagged) = 0.95×0.02 + 0.05×0.98 = 0.019 + 0.049 = 0.068. Posterior P(Fraud|Flagged) = 0.019/0.068 ≈ 27.9%. Insight: even with 95% accuracy, precision is only 27.9% due to class imbalance. This illustrates the base rate fallacy — a critical consideration in fraud detection systems.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["27|28|0.27|0.28", "Bayes|bayes", "base rate|class imbalance"],
+        "evaluators": ["similarity", "hallucination"]
+      }
+    }
+  ]
+}

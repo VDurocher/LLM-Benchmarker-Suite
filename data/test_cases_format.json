@@ -1,0 +1,108 @@
+{
+  "test_set": "format",
+  "description": "Cas de test évaluant la conformité structurelle des sorties : JSON valide, respect de schémas, formatage de réponses API, et génération de code Python syntaxiquement correct.",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "format_001",
+      "category": "json_schema_compliance",
+      "prompt": "Generate a JSON response for a transaction risk assessment. Include: transaction_id (string), risk_score (number 0-100), risk_level (enum: LOW/MEDIUM/HIGH/CRITICAL), flags (array of strings), recommended_action (string).",
+      "expected_output": "{\"transaction_id\": \"TXN-2024-001\", \"risk_score\": 87.5, \"risk_level\": \"HIGH\", \"flags\": [\"high_amount\", \"new_account\", \"high_risk_country\"], \"recommended_action\": \"Manual review required before processing\"}",
+      "model_output": "{\"transaction_id\": \"TXN-2024-XYZ\", \"risk_score\": 82.3, \"risk_level\": \"HIGH\", \"flags\": [\"large_transaction\", \"account_age_7_days\", \"suspicious_ip\"], \"recommended_action\": \"Flag for manual compliance review\"}",
+      "metadata": {
+        "expect_valid_json": true,
+        "json_schema": {
+          "type": "object",
+          "required": ["transaction_id", "risk_score", "risk_level", "flags", "recommended_action"],
+          "properties": {
+            "transaction_id": {"type": "string"},
+            "risk_score": {"type": "number", "minimum": 0, "maximum": 100},
+            "risk_level": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]},
+            "flags": {"type": "array", "items": {"type": "string"}},
+            "recommended_action": {"type": "string"}
+          },
+          "additionalProperties": false
+        },
+        "required_fields": ["transaction_id", "risk_score", "risk_level", "flags", "recommended_action"],
+        "evaluators": ["format", "similarity"]
+      }
+    },
+    {
+      "id": "format_002",
+      "category": "api_response_format",
+      "prompt": "Generate a standardized REST API error response for a 422 Unprocessable Entity when a transaction amount exceeds the daily limit of $25,000.",
+      "expected_output": "{\"error\": {\"code\": \"TRANSACTION_LIMIT_EXCEEDED\", \"message\": \"Transaction amount exceeds daily limit\", \"details\": {\"daily_limit\": 25000, \"requested_amount\": null, \"currency\": \"USD\"}, \"timestamp\": \"2024-01-01T00:00:00Z\", \"request_id\": \"req_abc123\"}}",
+      "model_output": "{\"error\": {\"code\": \"TRANSACTION_LIMIT_EXCEEDED\", \"message\": \"Requested transaction amount exceeds the daily limit of $25,000\", \"details\": {\"daily_limit\": 25000, \"currency\": \"USD\", \"limit_reset_at\": \"2024-01-02T00:00:00Z\"}, \"timestamp\": \"2024-01-01T12:34:56Z\", \"request_id\": \"req_xyz789\"}}",
+      "metadata": {
+        "expect_valid_json": true,
+        "json_schema": {
+          "type": "object",
+          "required": ["error"],
+          "properties": {
+            "error": {
+              "type": "object",
+              "required": ["code", "message", "timestamp"],
+              "properties": {
+                "code": {"type": "string"},
+                "message": {"type": "string"},
+                "timestamp": {"type": "string"},
+                "request_id": {"type": "string"}
+              }
+            }
+          }
+        },
+        "required_fields": ["error"],
+        "evaluators": ["format", "similarity"]
+      }
+    },
+    {
+      "id": "format_003",
+      "category": "python_code_generation",
+      "prompt": "Write a Python function `calculate_compound_interest(principal, rate, periods)` that returns the final amount. Include type hints and a docstring.",
+      "expected_output": "```python\ndef calculate_compound_interest(principal: float, rate: float, periods: int) -> float:\n    \"\"\"Calculate compound interest and return the final amount.\n    \n    Args:\n        principal: Initial investment amount.\n        rate: Annual interest rate as decimal (e.g., 0.05 for 5%).\n        periods: Number of compounding periods.\n    \n    Returns:\n        Final amount after compound interest.\n    \"\"\"\n    return principal * (1 + rate) ** periods\n```",
+      "model_output": "```python\ndef calculate_compound_interest(principal: float, rate: float, periods: int) -> float:\n    \"\"\"Compute the final amount after compound interest.\n    \n    Args:\n        principal: Starting capital amount.\n        rate: Interest rate per period as a decimal.\n        periods: Total number of compounding periods.\n    \n    Returns:\n        Total amount after applying compound interest.\n    \"\"\"\n    return principal * (1 + rate) ** periods\n```",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_functions": ["calculate_compound_interest"],
+        "required_patterns": ["def calculate_compound_interest", "float", "int", "->"],
+        "check_dangerous_patterns": true,
+        "check_pep8_lines": true,
+        "evaluators": ["code", "similarity"]
+      }
+    },
+    {
+      "id": "format_004",
+      "category": "json_invalid_output",
+      "prompt": "Return a JSON object with user KYC status. Fields: user_id, kyc_status (PENDING/APPROVED/REJECTED), verified_at.",
+      "expected_output": "{\"user_id\": \"usr_12345\", \"kyc_status\": \"APPROVED\", \"verified_at\": \"2024-01-15T09:30:00Z\"}",
+      "model_output": "Here is the KYC status: user_id: usr_99999, kyc_status: APPROVED, verified_at: 2024-01-15T09:30:00Z — hope this helps!",
+      "metadata": {
+        "expect_valid_json": true,
+        "json_schema": {
+          "type": "object",
+          "required": ["user_id", "kyc_status", "verified_at"],
+          "properties": {
+            "user_id": {"type": "string"},
+            "kyc_status": {"type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"]},
+            "verified_at": {"type": "string"}
+          }
+        },
+        "evaluators": ["format"]
+      }
+    },
+    {
+      "id": "format_005",
+      "category": "length_constraint",
+      "prompt": "Provide a one-sentence summary (maximum 150 characters) of what AML (Anti-Money Laundering) compliance means for a digital bank.",
+      "expected_output": "AML compliance requires digital banks to monitor transactions, verify customer identities, and report suspicious activity to prevent financial crime.",
+      "model_output": "AML compliance means digital banks must implement transaction monitoring, KYC verification, and SAR reporting to detect and prevent money laundering.",
+      "metadata": {
+        "expect_valid_json": false,
+        "max_length": 200,
+        "min_length": 50,
+        "required_patterns": ["monitor|compliance|verification|reporting"],
+        "evaluators": ["format", "similarity"]
+      }
+    }
+  ]
+}
