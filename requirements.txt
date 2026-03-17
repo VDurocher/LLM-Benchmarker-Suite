@@ -1,0 +1,20 @@
+# Dépendances de production — LLM-Benchmarker-Suite
+# Python 3.11+ requis
+
+# Traitement NLP et vectorisation TF-IDF
+scikit-learn>=1.4.0
+
+# Validation JSON Schema (Draft-7)
+jsonschema>=4.21.0
+
+# Calcul matriciel (dépendance de scikit-learn)
+numpy>=1.26.0
+
+# Formattage et analyse de code (optionnel — pour rapports enrichis)
+# Décommentez pour activer la vérification PEP8 avancée :
+# pycodestyle>=2.11.0
+
+# Développement et tests uniquement (ne pas installer en production)
+# pytest>=8.0.0
+# pytest-cov>=4.1.0
+# mypy>=1.8.0

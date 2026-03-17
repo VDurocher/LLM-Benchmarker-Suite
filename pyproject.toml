@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "llm-benchmarker-suite"
+version = "1.0.0"
+description = "Professional evaluation toolkit for LLM outputs — logic, format, and hallucination checks"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "LLM QA Engineering Team" }]
+keywords = ["llm", "evaluation", "benchmarking", "hallucination", "rlhf", "quality-assurance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+dependencies = [
+    "scikit-learn>=1.4.0",
+    "jsonschema>=4.21.0",
+    "numpy>=1.26.0",
+]
+
+[project.urls]
+Repository = "https://github.com/your-org/LLM-Benchmarker-Suite"
+Issues = "https://github.com/your-org/LLM-Benchmarker-Suite/issues"
+
+[project.scripts]
+llm-bench = "main:_run_benchmark"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -v"
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501"]
