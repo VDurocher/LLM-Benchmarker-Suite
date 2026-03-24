@@ -10,6 +10,7 @@ from evaluators.similarity_evaluator import SimilarityEvaluator
 from evaluators.format_evaluator import FormatEvaluator
 from evaluators.hallucination_evaluator import HallucinationEvaluator
 from evaluators.code_evaluator import CodeEvaluator
+from evaluators.consistency_evaluator import ConsistencyEvaluator
 
 __all__ = [
     "BaseEvaluator",
@@ -18,4 +19,5 @@ __all__ = [
     "FormatEvaluator",
     "HallucinationEvaluator",
     "CodeEvaluator",
+    "ConsistencyEvaluator",
 ]

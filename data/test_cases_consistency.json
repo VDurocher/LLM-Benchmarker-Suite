@@ -1,0 +1,62 @@
+{
+  "test_set": "consistency",
+  "description": "Cas de test ciblant la cohérence interne des sorties LLM : détection de contradictions, respect du format demandé, longueur appropriée.",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "consistency_001",
+      "category": "no_contradiction_json_format",
+      "prompt": "Return a JSON object with the status of a payment. Include: payment_id (string), status (string: COMPLETED or FAILED), amount (number), currency (string).",
+      "expected_output": "{\"payment_id\": \"PAY-001\", \"status\": \"COMPLETED\", \"amount\": 150.00, \"currency\": \"EUR\"}",
+      "model_output": "{\"payment_id\": \"PAY-001\", \"status\": \"COMPLETED\", \"amount\": 150.00, \"currency\": \"EUR\"}",
+      "metadata": {
+        "evaluators": ["consistency", "format"],
+        "description": "Sortie cohérente — JSON valide, pas de contradiction, longueur conforme"
+      }
+    },
+    {
+      "id": "consistency_002",
+      "category": "contradiction_detected",
+      "prompt": "Explain if a transaction of $50,000 from a new account should be flagged for review.",
+      "expected_output": "Yes, a $50,000 transaction from a new account should be flagged for manual review due to high risk indicators including large transaction amount and new account status.",
+      "model_output": "I cannot determine if this transaction is risky without more information. Actually, a $50,000 transaction from a new account is clearly high-risk and must be flagged immediately for compliance review.",
+      "metadata": {
+        "evaluators": ["consistency", "similarity"],
+        "description": "Contradiction explicite : 'I cannot determine' suivi de 'clearly high-risk'"
+      }
+    },
+    {
+      "id": "consistency_003",
+      "category": "output_too_short",
+      "prompt": "Provide a detailed explanation of how AML (Anti-Money Laundering) transaction monitoring works in a digital bank, including the key steps and detection methods used.",
+      "expected_output": "AML transaction monitoring in digital banks involves continuous real-time analysis of all transactions using rule-based systems and machine learning models. Key steps include: 1) Transaction screening against watchlists and sanction lists, 2) Behavioral analysis comparing transactions to established customer profiles, 3) Pattern detection for structuring (smurfing) and layering activities, 4) Risk scoring based on transaction amount, frequency, geography, and counterparty risk, 5) Automated alert generation for suspicious transactions exceeding thresholds, 6) SAR (Suspicious Activity Report) filing for confirmed suspicious activity.",
+      "model_output": "AML monitoring checks transactions.",
+      "metadata": {
+        "evaluators": ["consistency", "similarity"],
+        "description": "Sortie trop courte (3 mots) par rapport à l'attendu détaillé"
+      }
+    },
+    {
+      "id": "consistency_004",
+      "category": "format_mismatch",
+      "prompt": "Write a Python function called validate_iban(iban: str) -> bool that validates an IBAN string format.",
+      "expected_output": "```python\ndef validate_iban(iban: str) -> bool:\n    \"\"\"Validate IBAN format.\"\"\"\n    import re\n    pattern = r'^[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}([A-Z0-9]?){0,16}$'\n    return bool(re.match(pattern, iban.strip()))\n```",
+      "model_output": "An IBAN validation function should check the country code prefix, verify the checksum digits, and confirm the account number format. The function would return True if all checks pass and False otherwise. You could use regular expressions or a dedicated IBAN library for this purpose.",
+      "metadata": {
+        "evaluators": ["consistency", "similarity"],
+        "description": "Le prompt demande du code Python mais la sortie est du texte narratif"
+      }
+    },
+    {
+      "id": "consistency_005",
+      "category": "well_formed_list",
+      "prompt": "List the 4 main pillars of KYC (Know Your Customer) compliance for financial institutions.",
+      "expected_output": "1. Customer Identification Program (CIP) — verifying customer identity through documents.\n2. Customer Due Diligence (CDD) — assessing risk profile and understanding business relationships.\n3. Enhanced Due Diligence (EDD) — deeper scrutiny for high-risk customers.\n4. Ongoing Monitoring — continuous review of transactions and profile updates.",
+      "model_output": "1. Customer Identification Program (CIP): Collecting and verifying identity documents.\n2. Customer Due Diligence (CDD): Risk assessment and understanding customer purpose.\n3. Enhanced Due Diligence (EDD): Additional controls for politically exposed persons and high-risk profiles.\n4. Ongoing Monitoring: Regular review of customer activity and transaction patterns.",
+      "metadata": {
+        "evaluators": ["consistency", "similarity"],
+        "description": "Sortie cohérente en liste numérotée, longueur et format conformes"
+      }
+    }
+  ]
+}
