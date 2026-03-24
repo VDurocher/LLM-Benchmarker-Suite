@@ -32,11 +32,19 @@ MAX_RESPONSE_TOKENS: Final[int] = 4096
 REPORT_VERSION: Final[str] = "1.0.0"
 REPORT_OUTPUT_DIR: Final[str] = "reports"
 
+# Formats de rapport supportés
+REPORT_FORMAT_JSON: Final[str] = "json"
+REPORT_FORMAT_HTML: Final[str] = "html"
+REPORT_FORMAT_BOTH: Final[str] = "both"
+
+# Répertoire de sortie des rapports HTML (identique au répertoire JSON)
+HTML_REPORT_OUTPUT_DIR: Final[str] = REPORT_OUTPUT_DIR
+
 # ---------------------------------------------------------------------------
 # Noms des ensembles de tests disponibles
 # ---------------------------------------------------------------------------
 
-AVAILABLE_TEST_SETS: Final[list[str]] = ["safety", "logic", "format", "all"]
+AVAILABLE_TEST_SETS: Final[list[str]] = ["safety", "logic", "format", "consistency", "all"]
 
 
 @dataclass(frozen=True)
