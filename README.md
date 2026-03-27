@@ -19,22 +19,30 @@ It is designed by and for QA engineers working in environments where model failu
 
 ```
 LLM-Benchmarker-Suite/
-├── evaluators/                    # Modules d'évaluation spécialisés
-│   ├── base_evaluator.py          # Contrat abstrait — Template Method pattern
-│   ├── similarity_evaluator.py    # Cosine similarity (TF-IDF)
-│   ├── hallucination_evaluator.py # Keyword anchoring + contradiction detection
-│   ├── format_evaluator.py        # JSON Schema + regex + length constraints
-│   └── code_evaluator.py          # AST parsing + security pattern scan
-├── data/                          # Cas de test par domaine
-│   ├── test_cases_safety.json     # Refus, PII protection, adversarial prompts
-│   ├── test_cases_logic.json      # Raisonnement, SQL, probabilités
-│   └── test_cases_format.json     # JSON Schema, code Python, contraintes
+├── evaluators/                      # Specialized evaluation modules
+│   ├── base_evaluator.py            # Abstract contract — Template Method pattern
+│   ├── similarity_evaluator.py      # Cosine similarity (TF-IDF)
+│   ├── hallucination_evaluator.py   # Keyword anchoring + contradiction detection
+│   ├── format_evaluator.py          # JSON Schema + regex + length constraints
+│   ├── code_evaluator.py            # AST parsing + security pattern scan
+│   └── consistency_evaluator.py     # Cross-run consistency checks
+├── data/                            # Test cases by domain
+│   ├── test_cases_safety.json       # Refusals, PII protection, adversarial prompts
+│   ├── test_cases_logic.json        # Reasoning, SQL, probabilities
+│   ├── test_cases_format.json       # JSON Schema, Python code, constraints
+│   └── test_cases_consistency.json  # Consistency across rephrased prompts
 ├── utils/
-│   ├── logger.py                  # Logger structuré
-│   └── report_generator.py        # Générateur de rapports JSON versionnés
-├── reports/                       # Artefacts de benchmark (gitignored)
-├── config.py                      # Seuils, pondérations, constantes
-└── main.py                        # CLI — orchestrateur du pipeline
+│   ├── logger.py                    # Structured logger
+│   ├── report_generator.py          # Versioned JSON report generator
+│   ├── html_report.py               # HTML report generator (per model)
+│   ├── html_comparison.py           # HTML comparison report (multi-model)
+│   ├── html_primitives.py           # Shared HTML rendering helpers
+│   └── evaluation_pipeline.py      # Shared pipeline logic (load, evaluate, score)
+├── reports/                         # Benchmark artifacts (gitignored)
+├── config.py                        # Thresholds, weights, constants
+├── main.py                          # CLI — single-model benchmark
+├── compare_runner.py                # CLI — multi-model comparison
+└── pyproject.toml                   # Project metadata and tool configuration
 ```
 
 ---
@@ -72,18 +80,33 @@ The hallucination evaluator uses a two-pass approach:
 
 ---
 
-## CLI Usage
+## Installation
 
 ### Prerequisites
 
+- Python 3.11+
+
+### Setup
+
 ```bash
-# Python 3.11+ required
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Run a Benchmark
+**Dependencies** (`requirements.txt`):
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `scikit-learn` | >=1.4.0 | TF-IDF vectorization and cosine similarity |
+| `jsonschema` | >=4.21.0 | JSON Schema Draft-7 validation |
+| `numpy` | >=1.26.0 | Matrix computation (scikit-learn dependency) |
+
+---
+
+## CLI Usage
+
+### Single-Model Benchmark (`main.py`)
 
 ```bash
 # Evaluate a model against the safety test set
@@ -95,18 +118,46 @@ python main.py --model claude-3-5-sonnet --test-set all --verbose
 # Run logic tests and save report to a custom directory
 python main.py --model llama-3-70b --test-set logic --output-dir ./ci-reports
 
-# Format compliance test only
-python main.py --model gpt-4o-mini --test-set format
+# Generate both JSON and HTML reports
+python main.py --model gpt-4o --test-set all --format both
 ```
 
-### CLI Options
+#### Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--model` | Model identifier (string label, not an API call) | *(required)* |
-| `--test-set` | Test set name: `safety`, `logic`, `format`, `all` | `all` |
-| `--output-dir` | Directory to write JSON reports | `./reports/` |
+| `--test-set` | Test set: `safety`, `logic`, `format`, `consistency`, `all` | `all` |
+| `--output-dir` | Directory to write reports | `./reports/` |
+| `--format` | Report format: `json`, `html`, or `both` | `json` |
 | `--verbose` | Show per-evaluator scores for each test case | `false` |
+
+### Multi-Model Comparison (`compare_runner.py`)
+
+Run the same test set across multiple models and generate a side-by-side comparison report. At least two models are required.
+
+```bash
+# Compare two models on the safety test set
+python compare_runner.py --models gpt-4o claude-3-5-sonnet --test-set safety
+
+# Compare three models across all test sets
+python compare_runner.py --models gpt-4o claude-3-5-sonnet llama-3 --test-set all --verbose
+
+# Generate an HTML comparison report
+python compare_runner.py --models gpt-4o claude-3-5-sonnet --test-set format --format html
+```
+
+#### Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--models` | Space-separated list of model identifiers (2 minimum) | *(required)* |
+| `--test-set` | Test set: `safety`, `logic`, `format`, `consistency`, `all` | `all` |
+| `--output-dir` | Directory to write reports | `./reports/` |
+| `--format` | Report format: `json`, `html`, or `both` | `json` |
+| `--verbose` | Show per-case status for each model | `false` |
+
+The comparison runner determines a **winner** by pass rate, then by average composite score in case of a tie. It produces both individual per-model reports and a consolidated comparison report.
 
 ### Example Output
 
@@ -127,7 +178,6 @@ RÉSULTATS FINAUX
 Cas traités : 5 | Passés : 4 | Échoués : 1
 Pass rate : 80.0% (cible : 99.0%)
 Verdict : ✗ BELOW TARGET — DO NOT DEPLOY
-Rapport : /path/to/reports/benchmark_gpt-4o_safety_20240115_143022.json
 ============================================================
 ```
 
@@ -174,6 +224,10 @@ Each benchmark run generates a timestamped JSON report in `/reports/`:
   "test_cases": [...]
 }
 ```
+
+When using `--format html` or `--format both`, an HTML version of the same report is generated alongside the JSON file.
+
+For `compare_runner.py`, an additional `comparison_<id>.json` (or `.html`) is produced with a side-by-side breakdown of all models and the identified winner.
 
 ---
 
