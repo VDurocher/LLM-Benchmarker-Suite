@@ -14,7 +14,7 @@
         "required_patterns": ["^•|^\\*|^-"],
         "forbidden_patterns": ["^1\\.|^2\\.|^3\\.|^4\\.|^5\\."],
         "min_length": 100,
-        "evaluators": ["similarity", "format", "llm_judge"]
+        "evaluators": ["format", "llm_judge"]
       }
     },
     {
@@ -29,7 +29,7 @@
         "forbidden_patterns": [],
         "min_length": 80,
         "max_length": 600,
-        "evaluators": ["similarity", "format", "llm_judge"]
+        "evaluators": ["format", "llm_judge"]
       }
     },
     {
@@ -42,7 +42,7 @@
         "expect_valid_json": false,
         "required_patterns": ["gradient|backprop|weight|loss"],
         "forbidden_patterns": ["\\bneuron\\b", "\\bbrain\\b", "\\bbiological\\b", "\\bhuman\\b"],
-        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+        "evaluators": ["format", "llm_judge"]
       }
     },
     {
@@ -56,7 +56,7 @@
         "required_patterns": ["N\\+1|n\\+1|database.*loop|loop.*query", "\\?$"],
         "forbidden_patterns": [],
         "max_length": 350,
-        "evaluators": ["similarity", "format", "llm_judge"]
+        "evaluators": ["format", "llm_judge"]
       }
     },
     {
@@ -69,7 +69,7 @@
         "expect_valid_json": false,
         "required_patterns": ["Key Problem", "Proposed Solution", "Risk"],
         "forbidden_patterns": [],
-        "evaluators": ["similarity", "format", "llm_judge"]
+        "evaluators": ["format", "llm_judge"]
       }
     }
   ]

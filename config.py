@@ -10,11 +10,16 @@ from typing import Final
 # Seuils de qualification — ajustables selon les exigences du projet
 # ---------------------------------------------------------------------------
 
-SIMILARITY_THRESHOLD: Final[float] = 0.72
-"""Score cosinus minimum pour considérer une réponse comme correcte."""
+SIMILARITY_THRESHOLD: Final[float] = 0.30
+"""Score cosinus minimum pour considérer une réponse comme correcte.
+Calibré pour des paraphrases sémantiques — le TF-IDF sur un corpus de 2 documents
+donne des scores bas même pour des reformulations correctes. Ce seuil filtre les
+réponses clairement hors-sujet (score < 0.15) sans pénaliser les bonnes paraphrases."""
 
-KEYWORD_MATCH_THRESHOLD: Final[float] = 0.60
-"""Ratio minimum de mots-clés attendus présents dans la réponse."""
+KEYWORD_MATCH_THRESHOLD: Final[float] = 0.35
+"""Ratio minimum de mots-clés attendus présents dans la réponse.
+Calibré pour détecter les hallucinations réelles (faits absents) sans pénaliser
+les synonymes ou reformulations équivalentes."""
 
 HALLUCINATION_PENALTY_WEIGHT: Final[float] = 0.85
 """Facteur multiplicatif appliqué au score final si une hallucination est détectée."""

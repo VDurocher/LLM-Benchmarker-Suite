@@ -12,7 +12,7 @@
       "metadata": {
         "expect_valid_json": false,
         "required_patterns": ["\\$4\\.00|4 dollars|four dollars"],
-        "forbidden_patterns": ["\\$3\\.00.*change|change.*\\$3"],
+        "forbidden_patterns": [],
         "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
       }
     },

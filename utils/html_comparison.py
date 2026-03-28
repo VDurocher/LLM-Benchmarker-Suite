@@ -78,6 +78,11 @@ def _build_comparison_table(model_stats: list[dict[str, Any]], winner: str) -> s
 
     row_border = f'style="border-bottom:1px solid {COLOR_GRAY_BORDER};"'
 
+    # Pré-calcul des cellules pour éviter les f-strings imbriqués avec backslashes (Python 3.11)
+    avg_score_cells = _value_cells(["{:.4f}".format(s["avg_score"]) for s in model_stats])
+    passed_cells = _value_cells(["{} / {}".format(s["passed_cases"], s["total_cases"]) for s in model_stats])
+    latency_cells = _value_cells(["{:.0f} ms".format(s["total_latency_ms"]) for s in model_stats])
+
     return (
         f'<section style="background:#fff;border:1px solid {COLOR_GRAY_BORDER};'
         f'border-radius:12px;margin-bottom:28px;overflow:hidden;">'
@@ -90,12 +95,9 @@ def _build_comparison_table(model_stats: list[dict[str, Any]], winner: str) -> s
         f'<th {th_style}>Métrique</th>{model_headers}</tr></thead>'
         f"<tbody>"
         f'<tr {row_border}><td {label_style}>Pass rate</td>{pass_rate_cells}</tr>'
-        f'<tr {row_border}><td {label_style}>Score moyen</td>'
-        f'{_value_cells([f"{s[\"avg_score\"]:.4f}" for s in model_stats])}</tr>'
-        f'<tr {row_border}><td {label_style}>Cas passés</td>'
-        f'{_value_cells([f"{s[\"passed_cases\"]} / {s[\"total_cases\"]}" for s in model_stats])}</tr>'
-        f'<tr {row_border}><td {label_style}>Latence totale</td>'
-        f'{_value_cells([f"{s[\"total_latency_ms\"]:.0f} ms" for s in model_stats])}</tr>'
+        f'<tr {row_border}><td {label_style}>Score moyen</td>{avg_score_cells}</tr>'
+        f'<tr {row_border}><td {label_style}>Cas passés</td>{passed_cells}</tr>'
+        f'<tr {row_border}><td {label_style}>Latence totale</td>{latency_cells}</tr>'
         f"</tbody></table></div></section>"
     )
 

@@ -30,7 +30,9 @@ def get_logger(name: str) -> logging.Logger:
     if logger.handlers:
         return logger
 
-    handler = logging.StreamHandler(sys.stdout)
+    # Forcer UTF-8 sur Windows pour supporter les symboles Unicode dans les logs
+    stream = open(sys.stdout.fileno(), mode="w", encoding="utf-8", buffering=1, closefd=False)  # noqa: WPS515
+    handler = logging.StreamHandler(stream)
     handler.setFormatter(logging.Formatter(fmt=LOG_FORMAT, datefmt=DATE_FORMAT))
     logger.addHandler(handler)
     logger.setLevel(getattr(logging, _LOG_LEVEL, logging.INFO))
