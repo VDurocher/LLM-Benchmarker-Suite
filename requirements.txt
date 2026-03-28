@@ -10,11 +10,7 @@ jsonschema>=4.21.0
 # Calcul matriciel (dépendance de scikit-learn)
 numpy>=1.26.0
 
-# Formattage et analyse de code (optionnel — pour rapports enrichis)
-# Décommentez pour activer la vérification PEP8 avancée :
-# pycodestyle>=2.11.0
-
-# Développement et tests uniquement (ne pas installer en production)
-# pytest>=8.0.0
-# pytest-cov>=4.1.0
-# mypy>=1.8.0
+# Inférence live et LLM-as-a-judge — optionnel selon le provider utilisé
+# Installez uniquement le provider dont vous avez besoin :
+openai>=1.30.0
+anthropic>=0.18.0

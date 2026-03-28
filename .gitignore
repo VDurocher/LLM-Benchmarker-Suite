@@ -17,6 +17,7 @@ ENV/
 
 # Rapports générés (ne pas versionner les artefacts de CI)
 reports/*.json
+reports/*.html
 !reports/.gitkeep
 
 # Secrets et configuration locale

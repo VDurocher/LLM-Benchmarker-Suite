@@ -4,13 +4,13 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "llm-benchmarker-suite"
-version = "1.0.0"
-description = "Professional evaluation toolkit for LLM outputs — logic, format, and hallucination checks"
+version = "2.0.0"
+description = "Professional LLM evaluation toolkit — offline + live inference, LLM-as-a-judge, multi-model comparison"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "LLM QA Engineering Team" }]
-keywords = ["llm", "evaluation", "benchmarking", "hallucination", "rlhf", "quality-assurance"]
+authors = [{ name = "Victor Durocher", email = "durochervictor@gmail.com" }]
+keywords = ["llm", "evaluation", "benchmarking", "hallucination", "rlhf", "quality-assurance", "llm-as-a-judge", "prompt-engineering"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -26,11 +26,21 @@ dependencies = [
     "scikit-learn>=1.4.0",
     "jsonschema>=4.21.0",
     "numpy>=1.26.0",
+    "openai>=1.30.0",
+    "anthropic>=0.18.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "mypy>=1.8.0",
+    "ruff>=0.4.0",
 ]
 
 [project.urls]
-Repository = "https://github.com/your-org/LLM-Benchmarker-Suite"
-Issues = "https://github.com/your-org/LLM-Benchmarker-Suite/issues"
+Repository = "https://github.com/VDurocher/LLM-Benchmarker-Suite"
+Issues = "https://github.com/VDurocher/LLM-Benchmarker-Suite/issues"
 
 [project.scripts]
 llm-bench = "main:_run_benchmark"

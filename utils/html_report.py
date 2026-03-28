@@ -12,6 +12,8 @@ Produit un fichier HTML standalone (sans dépendances externes) incluant :
 
 from __future__ import annotations
 
+import html
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -32,35 +34,9 @@ from utils.html_primitives import (
     render_stat_card,
 )
 from utils.logger import get_logger
+from utils.stats import compute_evaluator_stats
 
 logger = get_logger(__name__)
-
-
-def _compute_evaluator_stats(
-    case_results: list[dict[str, Any]],
-) -> dict[str, dict[str, Any]]:
-    """Calcule les statistiques agrégées par évaluateur sur tous les cas."""
-    stats: dict[str, list[dict[str, Any]]] = {}
-    for case in case_results:
-        for evaluator in case["evaluators"]:
-            name = evaluator["name"]
-            if name not in stats:
-                stats[name] = []
-            stats[name].append(evaluator)
-
-    result: dict[str, dict[str, Any]] = {}
-    for ev_name, runs in stats.items():
-        scores = [run["score"] for run in runs if run.get("error") is None]
-        passed_count = sum(1 for run in runs if run["passed"])
-        latencies = [run["latency_ms"] for run in runs]
-        result[ev_name] = {
-            "total_runs": len(runs),
-            "passed": passed_count,
-            "pass_rate": round(passed_count / len(runs), 4) if runs else 0.0,
-            "average_score": round(sum(scores) / len(scores), 4) if scores else 0.0,
-            "average_latency_ms": round(sum(latencies) / len(latencies), 2) if latencies else 0.0,
-        }
-    return result
 
 
 def _build_header(model_name: str, test_set: str, pass_rate: float, now: datetime) -> str:
@@ -69,6 +45,9 @@ def _build_header(model_name: str, test_set: str, pass_rate: float, now: datetim
     verdict_label = "PRODUCTION READY" if production_ready else "NOT PRODUCTION READY"
     verdict_color = "#10b981" if production_ready else "#ef4444"
     badge_bg = "rgba(16,185,129,.25)" if production_ready else "rgba(239,68,68,.25)"
+    # Échappement XSS sur les champs contrôlés par l'utilisateur via CLI
+    safe_model_name = html.escape(model_name)
+    safe_test_set = html.escape(test_set)
     return (
         f'<header style="background:linear-gradient(135deg,{COLOR_ACCENT} 0%,#4f46e5 100%);'
         f'color:#fff;padding:32px 40px;border-radius:16px;margin-bottom:28px;">'
@@ -76,8 +55,8 @@ def _build_header(model_name: str, test_set: str, pass_rate: float, now: datetim
         f'flex-wrap:wrap;gap:16px;">'
         f'<div><div style="font-size:12px;font-weight:600;opacity:.75;text-transform:uppercase;'
         f'letter-spacing:.1em;margin-bottom:6px;">LLM Benchmarker Suite</div>'
-        f'<h1 style="margin:0;font-size:26px;font-weight:800;">{model_name}</h1>'
-        f'<div style="margin-top:6px;opacity:.8;font-size:14px;">Test set : <strong>{test_set}</strong></div></div>'
+        f'<h1 style="margin:0;font-size:26px;font-weight:800;">{safe_model_name}</h1>'
+        f'<div style="margin-top:6px;opacity:.8;font-size:14px;">Test set : <strong>{safe_test_set}</strong></div></div>'
         f'<div style="text-align:right;">'
         f'<span style="display:inline-block;background:{badge_bg};border:2px solid {verdict_color};'
         f'color:#fff;padding:8px 20px;border-radius:9999px;font-weight:800;font-size:15px;">'
@@ -210,7 +189,7 @@ class HtmlReportGenerator:
             for case in self._case_results
             for ev in case["evaluators"]
         )
-        evaluator_stats = _compute_evaluator_stats(self._case_results)
+        evaluator_stats = compute_evaluator_stats(self._case_results)
 
         cards = (
             render_stat_card("Total cases", str(total_cases), f"{passed_count} passed / {total_cases - passed_count} failed")
@@ -252,7 +231,9 @@ class HtmlReportGenerator:
         target_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = self._session_start.strftime("%Y%m%d_%H%M%S")
-        filename = f"benchmark_{self._model_name}_{self._test_set}_{timestamp}.html"
+        # Sanitisation du nom de modèle pour éviter le path traversal dans le nom de fichier
+        safe_model = re.sub(r"[^a-zA-Z0-9_.-]", "_", self._model_name)
+        filename = f"benchmark_{safe_model}_{self._test_set}_{timestamp}.html"
         output_path = target_dir / filename
 
         with open(output_path, "w", encoding="utf-8") as file_handle:

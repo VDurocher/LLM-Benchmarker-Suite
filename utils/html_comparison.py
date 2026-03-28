@@ -7,6 +7,7 @@ avec pass rate, score moyen, latence et mise en évidence du gagnant.
 
 from __future__ import annotations
 
+import html
 from datetime import datetime, timezone
 from typing import Any
 
@@ -24,14 +25,18 @@ from utils.html_primitives import (
 
 def _build_comparison_header(test_set: str, winner: str, winner_reason: str, now: datetime) -> str:
     """Génère le header du rapport de comparaison."""
+    # Échappement XSS sur les champs issus des arguments CLI et des noms de modèles
+    safe_test_set = html.escape(test_set)
+    safe_winner = html.escape(winner)
+    safe_winner_reason = html.escape(winner_reason)
     return (
         f'<header style="background:linear-gradient(135deg,{COLOR_ACCENT} 0%,#4f46e5 100%);'
         f'color:#fff;padding:32px 40px;border-radius:16px;margin-bottom:28px;">'
         f'<div style="font-size:12px;font-weight:600;opacity:.75;text-transform:uppercase;'
         f'letter-spacing:.1em;margin-bottom:6px;">LLM Benchmarker Suite — Comparaison</div>'
-        f'<h1 style="margin:0;font-size:24px;font-weight:800;">Test set : {test_set}</h1>'
+        f'<h1 style="margin:0;font-size:24px;font-weight:800;">Test set : {safe_test_set}</h1>'
         f'<div style="margin-top:8px;opacity:.8;font-size:14px;">'
-        f"Gagnant : <strong>{winner}</strong> — {winner_reason}</div>"
+        f"Gagnant : <strong>{safe_winner}</strong> — {safe_winner_reason}</div>"
         f'<div style="margin-top:6px;opacity:.65;font-size:12px;">'
         f'{now.strftime("%Y-%m-%d %H:%M:%S")} UTC</div></header>'
     )
@@ -48,9 +53,9 @@ def _build_comparison_table(model_stats: list[dict[str, Any]], winner: str) -> s
         f'background:{COLOR_GRAY_BG};"'
     )
 
-    # En-têtes colonnes modèles
+    # En-têtes colonnes modèles — échappement XSS sur les noms de modèles (arguments CLI)
     model_headers = "".join(
-        f'<th {th_style}>{stats["model_name"]}{"  🏆" if stats["model_name"] == winner else ""}</th>'
+        f'<th {th_style}>{html.escape(stats["model_name"])}{"  🏆" if stats["model_name"] == winner else ""}</th>'
         for stats in model_stats
     )
 

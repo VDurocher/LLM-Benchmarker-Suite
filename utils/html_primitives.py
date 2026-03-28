@@ -8,6 +8,7 @@ html_report.py et html_comparison.py.
 
 from __future__ import annotations
 
+import html
 from typing import Any
 
 from config import PASS_RATE_TARGET
@@ -48,9 +49,13 @@ def render_progress_bar(value: float, color: str, height: str = "10px") -> str:
 
 def render_stat_card(label: str, value: str, sub: str = "") -> str:
     """Génère une card de statistique."""
+    # Échappement XSS sur les valeurs dynamiques injectées dans le HTML
+    safe_label = html.escape(label)
+    safe_value = html.escape(value)
+    safe_sub = html.escape(sub)
     sub_html = (
         f'<span style="font-size:12px;color:{COLOR_TEXT_MUTED};display:block;margin-top:4px;">'
-        f"{sub}</span>"
+        f"{safe_sub}</span>"
         if sub
         else ""
     )
@@ -58,9 +63,9 @@ def render_stat_card(label: str, value: str, sub: str = "") -> str:
         f'<div style="background:#fff;border:1px solid {COLOR_GRAY_BORDER};border-radius:12px;'
         f'padding:20px 24px;flex:1;min-width:160px;">'
         f'<div style="font-size:13px;color:{COLOR_TEXT_MUTED};font-weight:500;'
-        f'text-transform:uppercase;letter-spacing:.05em;">{label}</div>'
+        f'text-transform:uppercase;letter-spacing:.05em;">{safe_label}</div>'
         f'<div style="font-size:28px;font-weight:700;color:{COLOR_TEXT_DARK};margin-top:6px;">'
-        f"{value}</div>{sub_html}</div>"
+        f"{safe_value}</div>{sub_html}</div>"
     )
 
 
@@ -69,9 +74,11 @@ def render_evaluator_row(name: str, stats: dict[str, Any]) -> str:
     pass_rate = stats["pass_rate"]
     color = pick_color(pass_rate)
     bar = render_progress_bar(pass_rate, color, height="6px")
+    # Échappement XSS sur le nom de l'évaluateur (peut provenir du JSON)
+    safe_name = html.escape(name)
     return (
         f"<tr>"
-        f'<td style="padding:10px 16px;font-weight:500;color:{COLOR_TEXT_DARK};">{name}</td>'
+        f'<td style="padding:10px 16px;font-weight:500;color:{COLOR_TEXT_DARK};">{safe_name}</td>'
         f'<td style="padding:10px 16px;color:{COLOR_TEXT_MUTED};">{stats["total_runs"]}</td>'
         f'<td style="padding:10px 16px;">'
         f'<span style="color:{color};font-weight:600;">{round(pass_rate * 100, 1)}%</span>'
@@ -90,23 +97,27 @@ def render_case_row(case: dict[str, Any]) -> str:
     badge_label = "PASS" if passed else "FAIL"
     badge_bg = "#ecfdf5" if passed else "#fef2f2"
 
+    # Échappement XSS sur les champs issus du JSON (noms d'évaluateurs, case_id, prompt)
     evaluators_html = "".join(
         f'<span style="display:inline-block;margin:2px;padding:2px 8px;'
         f'background:{"#ecfdf5" if ev["passed"] else "#fef2f2"};'
         f'color:{COLOR_GREEN if ev["passed"] else COLOR_RED};'
         f'border-radius:9999px;font-size:11px;font-weight:600;">'
-        f'{ev["name"]} {ev["score"]:.3f}</span>'
+        f'{html.escape(ev["name"])} {ev["score"]:.3f}</span>'
         for ev in case["evaluators"]
     )
 
     score_pct = round(case["composite_score"] * 100, 1)
     bar = render_progress_bar(case["composite_score"], badge_color, "5px")
-    prompt_preview = case.get("prompt_preview", "")
+    # Échappement du prompt (peut contenir du contenu arbitraire d'un LLM)
+    prompt_preview = html.escape(case.get("prompt_preview", ""))
+    # Échappement du case_id (provient du JSON de test)
+    safe_case_id = html.escape(case["case_id"])
 
     return (
         f'<tr style="border-bottom:1px solid {COLOR_GRAY_BORDER};">'
         f'<td style="padding:12px 16px;font-family:monospace;font-size:13px;'
-        f'color:{COLOR_ACCENT};">{case["case_id"]}</td>'
+        f'color:{COLOR_ACCENT};">{safe_case_id}</td>'
         f'<td style="padding:12px 16px;">'
         f'<span style="background:{badge_bg};color:{badge_color};padding:3px 10px;'
         f'border-radius:9999px;font-size:12px;font-weight:700;">{badge_label}</span></td>'
@@ -123,11 +134,13 @@ def render_case_row(case: dict[str, Any]) -> str:
 
 def html_page_wrapper(title: str, body_content: str) -> str:
     """Enveloppe le contenu dans un document HTML5 complet."""
+    # Échappement XSS sur le titre (contient le nom du modèle)
+    safe_title = html.escape(title)
     return (
         f"<!DOCTYPE html>\n<html lang='fr'>\n<head>\n"
         f'  <meta charset="UTF-8">\n'
         f'  <meta name="viewport" content="width=device-width,initial-scale=1">\n'
-        f"  <title>{title}</title>\n"
+        f"  <title>{safe_title}</title>\n"
         f"  <style>\n"
         f"    *, *::before, *::after {{ box-sizing: border-box; }}\n"
         f"    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "

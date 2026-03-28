@@ -1,0 +1,72 @@
+{
+  "test_set": "reasoning",
+  "description": "Cas de test évaluant les capacités de raisonnement multi-étapes : chaîne de pensée, déduction logique, raisonnement causal, analogies et résolution de problèmes complexes.",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "reasoning_001",
+      "category": "chain_of_thought_math",
+      "prompt": "A store sells apples for $0.50 each and oranges for $0.75 each. Sarah buys 6 apples and 4 oranges. She pays with a $10 bill. How much change does she receive? Show your reasoning step by step.",
+      "expected_output": "Step 1: Cost of apples = 6 × $0.50 = $3.00\nStep 2: Cost of oranges = 4 × $0.75 = $3.00\nStep 3: Total cost = $3.00 + $3.00 = $6.00\nStep 4: Change = $10.00 - $6.00 = $4.00\nSarah receives $4.00 in change.",
+      "model_output": "Step 1: Calculate the cost of apples: 6 apples × $0.50 = $3.00\nStep 2: Calculate the cost of oranges: 4 oranges × $0.75 = $3.00\nStep 3: Total purchase = $3.00 + $3.00 = $6.00\nStep 4: Change from $10 bill = $10.00 - $6.00 = $4.00\nSarah receives $4.00 change.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["\\$4\\.00|4 dollars|four dollars"],
+        "forbidden_patterns": ["\\$3\\.00.*change|change.*\\$3"],
+        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "reasoning_002",
+      "category": "logical_deduction",
+      "prompt": "All mammals are warm-blooded. All whales are mammals. Dolphins are not whales but are mammals. Are dolphins warm-blooded? Explain your reasoning.",
+      "expected_output": "Yes, dolphins are warm-blooded. Reasoning: The first premise states all mammals are warm-blooded. The third premise establishes that dolphins are mammals. By applying modus ponens (if P then Q; P is true; therefore Q is true), since dolphins are mammals and all mammals are warm-blooded, dolphins must be warm-blooded.",
+      "model_output": "Yes, dolphins are warm-blooded. Since all mammals are warm-blooded (first premise) and dolphins are mammals (given), we can conclude by syllogistic reasoning that dolphins are warm-blooded. The fact that dolphins are not whales is irrelevant to this conclusion — what matters is that they are mammals.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["warm-blooded|warm blooded", "mammal"],
+        "forbidden_patterns": ["dolphins are not warm|dolphins are cold"],
+        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "reasoning_003",
+      "category": "causal_analysis",
+      "prompt": "A software deployment caused a 40% spike in database query latency. The deployment included: (1) a new API endpoint, (2) an index removal on the users table, (3) a CSS update. What is the most likely root cause and why?",
+      "expected_output": "The most likely root cause is the index removal on the users table (change #2). Removing a database index forces the query planner to perform full table scans instead of efficient index lookups, directly causing increased query latency. The new API endpoint could add load but wouldn't cause a 40% latency spike on existing queries. The CSS update is frontend-only and has no impact on database performance.",
+      "model_output": "The root cause is almost certainly the index removal on the users table (#2). When a database index is removed, queries that previously used it must now perform full table scans, which is O(n) instead of O(log n). This directly explains the 40% latency spike. The new API endpoint might increase query volume but wouldn't affect per-query latency on existing endpoints. The CSS change is purely frontend and has zero database impact.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["index", "table scan|full scan|without index"],
+        "forbidden_patterns": ["CSS.*root cause|CSS.*caused|API endpoint.*root cause"],
+        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "reasoning_004",
+      "category": "counterfactual_reasoning",
+      "prompt": "In 2020, a company had 100 employees and $5M revenue. They did not hire any engineers that year. If they had hired 5 engineers at $100K each (total cost $500K including overhead), and each engineer generated $200K in new revenue on average, what would have been the net impact on profit?",
+      "expected_output": "Net impact calculation: Additional revenue = 5 engineers × $200K = $1,000,000. Additional cost = $500,000 (given). Net profit impact = $1,000,000 - $500,000 = +$500,000. Hiring the engineers would have increased profit by $500,000, representing a 2:1 return on investment (ROI = 100%).",
+      "model_output": "If they had hired 5 engineers: Revenue increase = 5 × $200K = $1M. Cost increase = $500K. Net profit impact = +$500K. The ROI would have been 100% ($500K return on $500K invested). This represents a strong business case for the hypothetical hiring decision.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["\\+?\\$500|500,000|500K"],
+        "forbidden_patterns": ["net loss|negative impact|would have lost"],
+        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "reasoning_005",
+      "category": "analogical_reasoning",
+      "prompt": "Explain how a load balancer in a web architecture is analogous to a traffic controller at a busy intersection. What are the limits of this analogy?",
+      "expected_output": "A load balancer distributes incoming network traffic across multiple servers, just as a traffic controller directs vehicles across multiple lanes or roads to prevent any single route from becoming congested. Both manage flow, prevent bottlenecks, and optimize throughput. Limits of the analogy: A load balancer can check server health and route around failures (a traffic controller cannot reroute around a crashed car automatically). Load balancers use algorithms (round-robin, least-connections, IP hashing) that have no direct traffic equivalent. Unlike cars, HTTP requests are stateless and can be trivially cloned.",
+      "model_output": "Like a traffic controller routing cars across multiple lanes to avoid gridlock, a load balancer distributes HTTP requests across multiple server instances to prevent any single server from being overwhelmed. Both ensure smooth flow and prevent bottlenecks. Limits: Load balancers actively monitor server health (no traffic analogy). Load balancers implement algorithmic strategies (round-robin, least-connections) that traffic controllers don't have. HTTP requests can be retried on failure; cars cannot be 'retried' if they take the wrong route.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["traffic|bottleneck|round.robin|health"],
+        "forbidden_patterns": [],
+        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+      }
+    }
+  ]
+}

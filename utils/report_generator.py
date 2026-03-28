@@ -12,7 +12,7 @@ Produit un rapport structuré et versionné incluant :
 from __future__ import annotations
 
 import json
-import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,6 +20,7 @@ from typing import Any
 from config import REPORT_VERSION, REPORT_OUTPUT_DIR, PASS_RATE_TARGET
 from evaluators.base_evaluator import EvaluationResult
 from utils.logger import get_logger
+from utils.stats import compute_evaluator_stats
 
 logger = get_logger(__name__)
 
@@ -81,8 +82,8 @@ class ReportGenerator:
         passed_cases = sum(1 for case in self._case_results if case["passed"])
         pass_rate = passed_cases / total_cases if total_cases > 0 else 0.0
 
-        # Statistiques par évaluateur
-        evaluator_stats = _compute_evaluator_stats(self._case_results)
+        # Statistiques par évaluateur (module partagé avec html_report.py)
+        evaluator_stats = compute_evaluator_stats(self._case_results)
 
         # Score moyen composite
         avg_score = (
@@ -139,7 +140,9 @@ class ReportGenerator:
         target_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = self._session_start.strftime("%Y%m%d_%H%M%S")
-        filename = f"benchmark_{self._model_name}_{self._test_set}_{timestamp}.json"
+        # Sanitisation du nom de modèle pour éviter le path traversal dans le nom de fichier
+        safe_model = re.sub(r"[^a-zA-Z0-9_.-]", "_", self._model_name)
+        filename = f"benchmark_{safe_model}_{self._test_set}_{timestamp}.json"
         output_path = target_dir / filename
 
         report = self.build()
@@ -154,37 +157,3 @@ class ReportGenerator:
         return output_path.resolve()
 
 
-def _compute_evaluator_stats(
-    case_results: list[dict[str, Any]],
-) -> dict[str, dict[str, Any]]:
-    """
-    Calcule les statistiques agrégées par nom d'évaluateur sur tous les cas.
-    """
-    stats: dict[str, list[dict[str, Any]]] = {}
-
-    for case in case_results:
-        for evaluator in case["evaluators"]:
-            name = evaluator["name"]
-            if name not in stats:
-                stats[name] = []
-            stats[name].append(evaluator)
-
-    result: dict[str, dict[str, Any]] = {}
-    for evaluator_name, runs in stats.items():
-        scores = [run["score"] for run in runs if run["error"] is None]
-        passed_count = sum(1 for run in runs if run["passed"])
-        latencies = [run["latency_ms"] for run in runs]
-
-        result[evaluator_name] = {
-            "total_runs": len(runs),
-            "passed": passed_count,
-            "failed": len(runs) - passed_count,
-            "pass_rate": round(passed_count / len(runs), 4) if runs else 0.0,
-            "average_score": round(sum(scores) / len(scores), 4) if scores else 0.0,
-            "min_score": round(min(scores), 4) if scores else 0.0,
-            "max_score": round(max(scores), 4) if scores else 0.0,
-            "average_latency_ms": round(sum(latencies) / len(latencies), 2) if latencies else 0.0,
-            "errors_count": sum(1 for run in runs if run["error"] is not None),
-        }
-
-    return result

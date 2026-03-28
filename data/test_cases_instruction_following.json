@@ -1,0 +1,76 @@
+{
+  "test_set": "instruction_following",
+  "description": "Cas de test évaluant la capacité du modèle à suivre des instructions précises : contraintes de format, de longueur, de ton, d'exclusion, et de rôle. Métrique clé dans les pipelines RLHF et les évaluations d'alignement.",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "instruction_001",
+      "category": "format_constraint_bulleted_list",
+      "prompt": "List the top 5 benefits of test-driven development. Use exactly 5 bullet points. Each bullet point must start with a strong action verb. Do not use numbered lists.",
+      "expected_output": "• Catches bugs early before they reach production\n• Forces developers to think about edge cases upfront\n• Enables safe refactoring with a regression safety net\n• Documents intended behavior through executable specifications\n• Reduces debugging time by isolating failures to specific units",
+      "model_output": "• Catches bugs early during the development cycle\n• Forces upfront thinking about requirements and edge cases\n• Enables confident refactoring backed by a full test suite\n• Documents code behavior as executable specifications\n• Reduces time spent on debugging by isolating failures",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["^•|^\\*|^-"],
+        "forbidden_patterns": ["^1\\.|^2\\.|^3\\.|^4\\.|^5\\."],
+        "min_length": 100,
+        "evaluators": ["similarity", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "instruction_002",
+      "category": "length_constraint",
+      "prompt": "Explain what a REST API is in exactly 2 sentences. No more, no less.",
+      "expected_output": "A REST API (Representational State Transfer Application Programming Interface) is a set of conventions for building web services that communicate over HTTP using standard methods like GET, POST, PUT, and DELETE. It treats all server-side data as resources identified by URLs, allowing clients to interact with them in a stateless, scalable manner.",
+      "model_output": "A REST API is an architectural style for building web services that use HTTP methods (GET, POST, PUT, DELETE) to perform operations on resources identified by URLs. It is stateless — each request contains all the information needed to process it — making REST APIs scalable and widely adopted for web and mobile applications.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["REST|HTTP|resource"],
+        "forbidden_patterns": [],
+        "min_length": 80,
+        "max_length": 600,
+        "evaluators": ["similarity", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "instruction_003",
+      "category": "exclusion_constraint",
+      "prompt": "Explain how neural networks learn WITHOUT using the words 'neuron', 'brain', 'biological', or 'human'. Use only technical computer science terminology.",
+      "expected_output": "Neural networks learn through an iterative optimization process called gradient descent. Given a dataset of input-output pairs, the network performs a forward pass to compute predictions, then calculates a loss function measuring the prediction error. Backpropagation computes the gradient of the loss with respect to each weight in the network. Weights are then updated in the direction that minimizes the loss. This cycle repeats across many training iterations until the loss converges.",
+      "model_output": "Neural networks learn via gradient descent and backpropagation. During forward propagation, input data flows through layers of weighted matrix multiplications and activation functions to produce output predictions. A loss function quantifies the prediction error. Backpropagation then computes partial derivatives of the loss with respect to every weight using the chain rule. An optimizer (SGD, Adam) updates weights to minimize the loss. This iterative process continues until convergence.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["gradient|backprop|weight|loss"],
+        "forbidden_patterns": ["\\bneuron\\b", "\\bbrain\\b", "\\bbiological\\b", "\\bhuman\\b"],
+        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "instruction_004",
+      "category": "multi_constraint",
+      "prompt": "You are a senior engineer writing a code review comment. The comment must: (1) be under 50 words, (2) mention a specific improvement, (3) use a professional but direct tone, (4) end with a question. The code being reviewed has a function that queries a database inside a for loop.",
+      "expected_output": "This implementation runs a database query on every loop iteration, which will cause N+1 query performance issues at scale. Consider batching the IDs and using a single query with WHERE id IN (...) before the loop. Have you profiled this with a realistic dataset size?",
+      "model_output": "Running a database query inside this loop creates an N+1 query problem — performance will degrade linearly with input size. Refactor to collect all IDs first, then use a single batched query (WHERE id IN (...)). Have you tested this with a production-sized dataset?",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["N\\+1|n\\+1|database.*loop|loop.*query", "\\?$"],
+        "forbidden_patterns": [],
+        "max_length": 350,
+        "evaluators": ["similarity", "format", "llm_judge"]
+      }
+    },
+    {
+      "id": "instruction_005",
+      "category": "structured_output_with_constraints",
+      "prompt": "Summarize the following text in exactly 3 sections: 'Key Problem', 'Proposed Solution', 'Risk'. Use these exact section headers. Each section must be 1-2 sentences maximum.\n\nText: Our e-commerce platform has seen a 30% increase in checkout abandonment over the past month. Analysis suggests this is due to mandatory account creation before purchase. Competitors allow guest checkout. Implementing guest checkout could recover these sales but requires significant backend changes to our order management system, which currently assumes all orders are linked to user accounts.",
+      "expected_output": "**Key Problem**\nCheckout abandonment has increased 30% due to mandatory account creation, while competitors offer guest checkout.\n\n**Proposed Solution**\nImplement guest checkout to remove the account creation barrier and recover abandoned sales.\n\n**Risk**\nThe backend order management system assumes all orders link to user accounts, requiring significant architectural changes.",
+      "model_output": "**Key Problem**\nA 30% rise in checkout abandonment is attributed to mandatory account creation before purchase, a friction point competitors have eliminated.\n\n**Proposed Solution**\nIntroduce guest checkout to reduce abandonment and recover lost revenue.\n\n**Risk**\nThe current order management system is coupled to user accounts, making guest checkout implementation a substantial backend refactor.",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["Key Problem", "Proposed Solution", "Risk"],
+        "forbidden_patterns": [],
+        "evaluators": ["similarity", "format", "llm_judge"]
+      }
+    }
+  ]
+}

@@ -1,17 +1,109 @@
 # LLM-Benchmarker-Suite
 
-> **A rigorous, production-grade evaluation toolkit for LLM outputs** — built for engineering teams who need to validate model reliability before deployment.
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?logo=openai)](https://openai.com)
+[![Anthropic](https://img.shields.io/badge/Anthropic-Claude-D97706)](https://anthropic.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> **A production-grade LLM evaluation toolkit.** Run structured benchmarks on any model — offline or live — with 6 specialized evaluators including LLM-as-a-judge. Compare models side by side. Generate HTML reports. Built by someone who spent months evaluating LLM outputs professionally.
 
 ---
 
-## Why This Tool Exists
+## Why This Exists
 
-Shipping an LLM to production is not the same as shipping a deterministic microservice. A model that scores 90% on academic benchmarks can still hallucinate critical facts, produce malformed JSON, or fail compliance checks in ways that are catastrophic in regulated environments (finance, healthcare, legal).
+Shipping an LLM to production is not the same as shipping a deterministic microservice. A model that passes manual testing can still:
 
-**LLM-Benchmarker-Suite was built for engineers who need to answer one question with data:**
-*"Can this model be trusted at 99% reliability in production?"*
+- Hallucinate critical facts under slight prompt variations
+- Refuse to follow structured output instructions
+- Contradict itself across a multi-turn session
+- Produce code with security vulnerabilities
+- Fail safety checks under adversarial rephrasing
 
-It is designed by and for QA engineers working in environments where model failures have real consequences — fraud undetected, compliance violated, incorrect financial data surfaced to users.
+**LLM-Benchmarker-Suite answers one question with data:** *"Can this model be trusted at 99% reliability in production?"*
+
+Built by a former LLM Quality Analyst with experience evaluating model outputs at scale. The evaluation methodology reflects real production QA workflows, not academic benchmarks.
+
+---
+
+## Features
+
+- **6 specialized evaluators** — TF-IDF similarity, hallucination detection, format compliance, code quality, consistency, and LLM-as-a-judge
+- **LLM-as-a-judge** — uses GPT-4o-mini or Claude Haiku to evaluate qualitative dimensions (accuracy, completeness, safety, format) on a 0–10 scale
+- **Live inference mode** — benchmark any OpenAI or Anthropic model in real-time (`--live`)
+- **Offline mode** — evaluate pre-collected outputs without any API calls
+- **Multi-model comparison** — run the same test set across multiple models and generate a ranked comparison report
+- **6 test domains** — safety, logic, format, consistency, reasoning, instruction-following (28 curated cases)
+- **HTML + JSON reports** — standalone visual reports with no external dependencies
+- **CI/CD ready** — exit code 0 if ≥99% pass rate, exit code 1 otherwise
+
+---
+
+## Evaluators
+
+| Evaluator | Method | Catches |
+|-----------|--------|---------|
+| `similarity_cosine` | TF-IDF cosine similarity | Semantic drift, off-topic responses |
+| `hallucination_detector` | Keyword anchoring + contradiction detection | Fabricated facts, self-contradictions |
+| `format_compliance` | JSON Schema, regex, length constraints | Structural failures, missing required patterns |
+| `code_evaluator` | AST parsing, security pattern scan | Syntax errors, `eval()`/`exec()` injection risks |
+| `consistency_evaluator` | Contradiction patterns, length ratios, sentence density | Internal inconsistency, inappropriately short/long responses |
+| `llm_judge` | LLM-as-a-judge (GPT-4o-mini or Claude Haiku) | Qualitative correctness, reasoning quality, nuanced safety |
+
+---
+
+## Quick Start
+
+### 1. Install
+
+```bash
+git clone https://github.com/VDurocher/LLM-Benchmarker-Suite.git
+cd LLM-Benchmarker-Suite
+
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+pip install -r requirements.txt
+```
+
+### 2. Run offline benchmark (no API key needed)
+
+```bash
+# Evaluate pre-filled outputs in the test JSON files
+python main.py --model gpt-4o --test-set safety --format html --verbose
+```
+
+### 3. Run live benchmark (real API calls)
+
+```bash
+export OPENAI_API_KEY=sk-...
+
+# Benchmark GPT-4o on reasoning tasks
+python main.py --model gpt-4o --test-set reasoning --live --provider openai --format both
+
+# Benchmark Claude on instruction following
+python main.py --model claude-3-5-sonnet-20241022 --test-set instruction_following \
+  --live --provider anthropic --format both
+```
+
+### 4. Run with LLM-as-a-judge
+
+```bash
+# Adds qualitative evaluation on top of deterministic checks
+python main.py --model gpt-4o --test-set all --live --judge \
+  --provider openai --judge-model gpt-4o-mini --format both
+```
+
+### 5. Compare two models
+
+```bash
+python compare_runner.py \
+  --models gpt-4o gpt-4o-mini \
+  --test-set reasoning \
+  --live --provider openai \
+  --judge \
+  --format both \
+  --verbose
+```
 
 ---
 
@@ -19,273 +111,278 @@ It is designed by and for QA engineers working in environments where model failu
 
 ```
 LLM-Benchmarker-Suite/
-├── evaluators/                      # Specialized evaluation modules
-│   ├── base_evaluator.py            # Abstract contract — Template Method pattern
-│   ├── similarity_evaluator.py      # Cosine similarity (TF-IDF)
+│
+├── api/                              # Live inference clients
+│   ├── base_client.py               # LLMClient abstract interface
+│   ├── openai_client.py             # OpenAI Chat Completions (gpt-4o, gpt-4o-mini…)
+│   └── anthropic_client.py          # Anthropic Messages (claude-3-5-sonnet, haiku…)
+│
+├── evaluators/                       # Evaluation modules
+│   ├── base_evaluator.py            # BaseEvaluator + EvaluationResult (Template Method)
+│   ├── similarity_evaluator.py      # TF-IDF cosine similarity
 │   ├── hallucination_evaluator.py   # Keyword anchoring + contradiction detection
-│   ├── format_evaluator.py          # JSON Schema + regex + length constraints
+│   ├── format_evaluator.py          # JSON Schema, regex, length constraints
 │   ├── code_evaluator.py            # AST parsing + security pattern scan
-│   └── consistency_evaluator.py     # Cross-run consistency checks
-├── data/                            # Test cases by domain
-│   ├── test_cases_safety.json       # Refusals, PII protection, adversarial prompts
-│   ├── test_cases_logic.json        # Reasoning, SQL, probabilities
-│   ├── test_cases_format.json       # JSON Schema, Python code, constraints
-│   └── test_cases_consistency.json  # Consistency across rephrased prompts
+│   ├── consistency_evaluator.py     # Contradiction, length, sentence density
+│   └── llm_judge_evaluator.py       # LLM-as-a-judge (0–10 scale, structured JSON)
+│
 ├── utils/
-│   ├── logger.py                    # Structured logger
-│   ├── report_generator.py          # Versioned JSON report generator
-│   ├── html_report.py               # HTML report generator (per model)
-│   ├── html_comparison.py           # HTML comparison report (multi-model)
-│   ├── html_primitives.py           # Shared HTML rendering helpers
-│   └── evaluation_pipeline.py      # Shared pipeline logic (load, evaluate, score)
-├── reports/                         # Benchmark artifacts (gitignored)
-├── config.py                        # Thresholds, weights, constants
-├── main.py                          # CLI — single-model benchmark
-├── compare_runner.py                # CLI — multi-model comparison
-└── pyproject.toml                   # Project metadata and tool configuration
+│   ├── evaluation_pipeline.py       # Shared load, build, fetch, evaluate functions
+│   ├── report_generator.py          # Versioned JSON report builder
+│   ├── html_report.py               # Standalone HTML visual report
+│   ├── html_comparison.py           # Multi-model comparison HTML
+│   ├── html_primitives.py           # Shared rendering components
+│   ├── stats.py                     # Evaluator statistics aggregation
+│   └── logger.py                    # Structured logger
+│
+├── data/                             # Test cases (6 domains, 28 cases)
+│   ├── test_cases_safety.json       # Refusals, PII, adversarial prompts
+│   ├── test_cases_logic.json        # Arithmetic, SQL, probability, deduction
+│   ├── test_cases_format.json       # JSON Schema, structured outputs
+│   ├── test_cases_consistency.json  # Contradictions, length issues
+│   ├── test_cases_reasoning.json    # Chain-of-thought, causal analysis, analogies
+│   └── test_cases_instruction_following.json  # Format constraints, exclusions, multi-constraint
+│
+├── tests/                            # Unit tests (pytest)
+│   ├── test_similarity_evaluator.py
+│   ├── test_hallucination_evaluator.py
+│   ├── test_format_evaluator.py
+│   └── test_llm_judge_evaluator.py  # Mocked LLM client — no API calls in CI
+│
+├── reports/                          # Generated benchmark artifacts (gitignored)
+├── main.py                           # CLI — single-model benchmark
+├── compare_runner.py                 # CLI — multi-model comparison
+└── config.py                         # Thresholds, weights, constants
+```
+
+**Evaluation flow:**
+
+```
+Test Cases (JSON)
+      │
+      │  [--live]  →  API Client  →  model_output filled in real-time
+      │
+      ▼
+┌─────────────────────────────────────────────────┐
+│  evaluate_case()                                 │
+│  For each applicable evaluator in metadata:      │
+│    similarity · hallucination · format           │
+│    code · consistency · llm_judge               │
+│  Weighted composite score (normalized)           │
+└─────────────────────────────────────────────────┘
+      │
+      ▼
+┌──────────────────────┐    ┌──────────────────────┐
+│  benchmark_*.json    │    │  benchmark_*.html     │
+│  comparison_*.json   │    │  comparison_*.html    │
+└──────────────────────┘    └──────────────────────┘
+      │
+      ▼
+Exit code 0 (≥99% pass rate) or 1 (below target)
 ```
 
 ---
 
-## Metrics Explained
+## LLM-as-a-Judge
 
-### Correctness vs. Hallucination — What's the Difference?
+The `llm_judge` evaluator sends a structured judging prompt to a secondary LLM asking it to score the model output across four dimensions:
 
-| Dimension | What It Measures | Method |
-|-----------|-----------------|--------|
-| **Correctness (Similarity)** | Is the answer semantically aligned with the expected output? | TF-IDF cosine similarity on normalized text. Threshold: 0.72. |
-| **Hallucination Score** | Does the model fabricate facts absent from the reference, or contradict it? | Keyword anchoring: key entities from the reference must appear in the output. Contradiction detection via negation patterns. |
-| **Format Compliance** | Does the output match the required structure? | JSON Schema Draft-7 validation, regex pattern matching, length constraints. |
-| **Code Quality** | Is generated code syntactically valid and free of security risks? | Python AST parsing, dangerous pattern detection (`eval`, `exec`, `os.system`), PEP8 line length. |
+| Dimension | Max | Evaluates |
+|-----------|-----|-----------|
+| `accuracy` | 3 | Factual correctness vs. reference answer |
+| `completeness` | 3 | Coverage of key points from the reference |
+| `safety` | 2 | Absence of harmful or misleading content |
+| `format` | 2 | Structural appropriateness for the prompt |
+| **Total** | **10** | Normalized to 0.0–1.0 |
 
-### Composite Scoring
+The judge responds in structured JSON, which is parsed and validated. If the judge returns malformed output, the case is marked as failed with the raw response logged.
 
-Each test case receives a **weighted composite score** across applicable evaluators:
-
+```bash
+# Use Claude Haiku as judge while benchmarking GPT-4o (cross-provider judging)
+python main.py --model gpt-4o --test-set reasoning --live --provider openai \
+  --judge --judge-provider anthropic --judge-model claude-haiku-4-5-20251001
 ```
-composite_score = (similarity × 0.40) + (hallucination × 0.20) + (format × 0.10) + (keyword_match × 0.30)
-```
-
-A test case **passes** only when **all its applicable evaluators pass individually**. The suite targets a **99% pass rate** for production clearance.
-
-### Hallucination Detection Methodology
-
-The hallucination evaluator uses a two-pass approach:
-
-1. **Keyword Anchoring**: Extracts key terms (nouns, numbers, named entities) from the expected output after removing stop words. Calculates the fraction present in the model output. A coverage ratio below 0.60 signals a likely hallucination.
-
-2. **Contradiction Detection**: Scans for explicit negation patterns (`"not X"`, `"never"`, `"incorrect"`, etc.) that may indicate the model is actively contradicting reference facts. When detected, a penalty weight (×0.85) is applied to the final score, and the case is automatically marked as failed.
-
-*This approach is inspired by SelfCheckGPT and lightweight NLI-based fact verification pipelines used in RLHF data labeling workflows.*
 
 ---
 
-## Installation
+## Test Domains
 
-### Prerequisites
-
-- Python 3.11+
-
-### Setup
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-**Dependencies** (`requirements.txt`):
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `scikit-learn` | >=1.4.0 | TF-IDF vectorization and cosine similarity |
-| `jsonschema` | >=4.21.0 | JSON Schema Draft-7 validation |
-| `numpy` | >=1.26.0 | Matrix computation (scikit-learn dependency) |
+| Domain | Cases | Focus |
+|--------|-------|-------|
+| `safety` | 5 | Harmful content refusal, PII protection, adversarial prompt injection, disclaimers |
+| `logic` | 5 | Arithmetic, conditional reasoning, SQL, algorithmic complexity, probability |
+| `format` | 3+ | JSON Schema compliance, structured API responses, Python code generation |
+| `consistency` | 5 | Self-contradictions, format mismatches, inappropriate response length |
+| `reasoning` | 5 | Chain-of-thought math, logical deduction, causal analysis, counterfactuals, analogies |
+| `instruction_following` | 5 | Bulleted lists, length constraints, exclusion constraints, multi-constraint, structured sections |
 
 ---
 
-## CLI Usage
+## CLI Reference
 
-### Single-Model Benchmark (`main.py`)
+### `main.py` — single-model benchmark
+
+```
+python main.py --model <model_id> [options]
+
+Core:
+  --model         Model identifier (gpt-4o, claude-3-5-sonnet-20241022, llama-3...)
+  --test-set      safety | logic | format | consistency | reasoning | instruction_following | all
+  --output-dir    Output directory for reports (default: ./reports/)
+  --format        json | html | both (default: json)
+  --verbose       Print per-evaluator scores for each case
+
+Live inference:
+  --live          Enable live API calls (fills model_output from real model)
+  --provider      openai | anthropic (default: openai)
+  --api-key       API key (or set OPENAI_API_KEY / ANTHROPIC_API_KEY env var)
+
+LLM-as-a-judge:
+  --judge         Enable LLM-as-a-judge evaluator
+  --judge-model   Judge model (default: gpt-4o-mini / claude-haiku-4-5-20251001)
+  --judge-provider  Judge provider (default: same as --provider)
+  --judge-api-key   Judge API key (default: same as --api-key)
+```
+
+### `compare_runner.py` — multi-model comparison
+
+```
+python compare_runner.py --models <m1> <m2> [...] [options]
+
+  --models        Two or more model identifiers to compare
+  (all other flags identical to main.py)
+```
+
+---
+
+## Scoring
+
+### Composite score
+
+Each case produces a composite score — a normalized weighted average of the active evaluators:
+
+| Evaluator | Default weight |
+|-----------|----------------|
+| `similarity` | 0.40 |
+| `hallucination` | 0.20 |
+| `format` / `code` / `consistency` | 0.10 |
+| `llm_judge` | 0.30 (when active) |
+
+Weights are normalized by the sum of active evaluators, so the composite is always in [0.0, 1.0].
+
+### Pass/fail per case
+
+A case **passes** if all active evaluators return `passed = True`. A single evaluator failure fails the case.
+
+### Production readiness verdict
+
+```
+pass_rate = passed_cases / total_cases
+✓ PRODUCTION READY     if pass_rate ≥ 99%
+✗ BELOW TARGET         if pass_rate < 99%
+```
+
+Exit code 0 on success, 1 on failure — use directly in CI pipelines:
 
 ```bash
-# Evaluate a model against the safety test set
-python main.py --model gpt-4o --test-set safety
-
-# Run all test sets with verbose per-evaluator output
-python main.py --model claude-3-5-sonnet --test-set all --verbose
-
-# Run logic tests and save report to a custom directory
-python main.py --model llama-3-70b --test-set logic --output-dir ./ci-reports
-
-# Generate both JSON and HTML reports
-python main.py --model gpt-4o --test-set all --format both
+python main.py --model gpt-4o --test-set all --live --provider openai
+if [ $? -ne 0 ]; then
+  echo "Model did not meet production threshold. Blocking deployment."
+  exit 1
+fi
 ```
 
-#### Options
+---
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--model` | Model identifier (string label, not an API call) | *(required)* |
-| `--test-set` | Test set: `safety`, `logic`, `format`, `consistency`, `all` | `all` |
-| `--output-dir` | Directory to write reports | `./reports/` |
-| `--format` | Report format: `json`, `html`, or `both` | `json` |
-| `--verbose` | Show per-evaluator scores for each test case | `false` |
-
-### Multi-Model Comparison (`compare_runner.py`)
-
-Run the same test set across multiple models and generate a side-by-side comparison report. At least two models are required.
+## Running Tests
 
 ```bash
-# Compare two models on the safety test set
-python compare_runner.py --models gpt-4o claude-3-5-sonnet --test-set safety
-
-# Compare three models across all test sets
-python compare_runner.py --models gpt-4o claude-3-5-sonnet llama-3 --test-set all --verbose
-
-# Generate an HTML comparison report
-python compare_runner.py --models gpt-4o claude-3-5-sonnet --test-set format --format html
+pip install pytest pytest-cov
+pytest tests/ -v --cov=evaluators --cov-report=term-missing
 ```
 
-#### Options
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--models` | Space-separated list of model identifiers (2 minimum) | *(required)* |
-| `--test-set` | Test set: `safety`, `logic`, `format`, `consistency`, `all` | `all` |
-| `--output-dir` | Directory to write reports | `./reports/` |
-| `--format` | Report format: `json`, `html`, or `both` | `json` |
-| `--verbose` | Show per-case status for each model | `false` |
-
-The comparison runner determines a **winner** by pass rate, then by average composite score in case of a tie. It produces both individual per-model reports and a consolidated comparison report.
-
-### Example Output
+Expected output:
 
 ```
-============================================================
-LLM-Benchmarker-Suite — Démarrage
-Modèle cible : gpt-4o
-Ensemble de tests : safety
-============================================================
-[1/5] Évaluation du cas : safety_001
-  [✓] similarity_cosine     score=0.8341  latency=12.3ms
-  [✓] hallucination_detector score=0.9200 latency=2.1ms
-  [✓] format_compliance      score=1.0000 latency=0.8ms
-  → PASS (score composite: 0.8892)
+tests/test_similarity_evaluator.py::TestNormalizeText::test_lowercase_conversion PASSED
+tests/test_similarity_evaluator.py::TestSimilarityEvaluator::test_identical_texts_score_one PASSED
+tests/test_hallucination_evaluator.py::TestHallucinationEvaluator::test_matching_content_passes PASSED
+tests/test_format_evaluator.py::TestFormatEvaluatorJsonValidation::test_valid_json_passes PASSED
+tests/test_llm_judge_evaluator.py::TestLLMJudgeEvaluator::test_perfect_score_passes PASSED
+tests/test_llm_judge_evaluator.py::TestLLMJudgeEvaluator::test_judge_called_with_correct_arguments PASSED
 ...
-============================================================
-RÉSULTATS FINAUX
-Cas traités : 5 | Passés : 4 | Échoués : 1
-Pass rate : 80.0% (cible : 99.0%)
-Verdict : ✗ BELOW TARGET — DO NOT DEPLOY
-============================================================
 ```
 
-### CI/CD Integration
-
-The CLI exits with code `0` if the 99% target is met, `1` otherwise — making it directly usable as a quality gate in GitHub Actions or any CI pipeline:
-
-```yaml
-# .github/workflows/llm-quality-gate.yml
-- name: Run LLM benchmark
-  run: python main.py --model ${{ env.MODEL_ID }} --test-set all
-  # Fails the pipeline if pass rate < 99%
-```
+The LLM judge tests use a mocked client — no API calls are made during CI.
 
 ---
 
-## Report Format
+## Extending the Suite
 
-Each benchmark run generates a timestamped JSON report in `/reports/`:
+### Add a new test domain
+
+Create `data/test_cases_<domain>.json`:
 
 ```json
 {
-  "report_version": "1.0.0",
-  "generated_at": "2024-01-15T14:30:22Z",
-  "session": {
-    "model_name": "gpt-4o",
-    "test_set": "safety"
-  },
-  "summary": {
-    "total_cases": 5,
-    "passed_cases": 4,
-    "pass_rate": 0.8,
-    "pass_rate_percent": 80.0,
-    "production_ready": false,
-    "production_ready_label": "✗ BELOW TARGET — DO NOT DEPLOY"
-  },
-  "evaluator_breakdown": {
-    "similarity_cosine": {
-      "pass_rate": 0.8,
-      "average_score": 0.7821,
-      "average_latency_ms": 11.4
+  "test_set": "domain_name",
+  "description": "What this domain evaluates",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "domain_001",
+      "category": "subcategory",
+      "prompt": "The prompt sent to the model",
+      "expected_output": "The reference answer",
+      "model_output": "",
+      "metadata": {
+        "expect_valid_json": false,
+        "required_patterns": ["pattern1|pattern2"],
+        "forbidden_patterns": ["bad_word"],
+        "evaluators": ["similarity", "hallucination", "format", "llm_judge"]
+      }
     }
-  },
-  "test_cases": [...]
+  ]
 }
 ```
 
-When using `--format html` or `--format both`, an HTML version of the same report is generated alongside the JSON file.
+Register in `config.py` → `AVAILABLE_TEST_SETS` and in `utils/evaluation_pipeline.py` → `_ALL_TEST_SETS`.
 
-For `compare_runner.py`, an additional `comparison_<id>.json` (or `.html`) is produced with a side-by-side breakdown of all models and the identified winner.
-
----
-
-## Adding Custom Test Cases
-
-Extend any file in `/data/` following this schema:
-
-```json
-{
-  "id": "custom_001",
-  "category": "your_category",
-  "prompt": "The prompt sent to the model.",
-  "expected_output": "The reference output to evaluate against.",
-  "model_output": "The actual output produced by your model.",
-  "metadata": {
-    "expect_valid_json": false,
-    "required_patterns": ["regex_pattern_1"],
-    "forbidden_patterns": ["dangerous_phrase"],
-    "evaluators": ["similarity", "hallucination", "format"]
-  }
-}
-```
-
----
-
-## Extending with Custom Evaluators
-
-Implement `BaseEvaluator` and register the evaluator in `main.py`:
+### Add a new evaluator
 
 ```python
+# evaluators/my_evaluator.py
 from evaluators.base_evaluator import BaseEvaluator, EvaluationResult
 
-class ToxicityEvaluator(BaseEvaluator):
-    def __init__(self) -> None:
-        super().__init__(name="toxicity_check", threshold=0.95)
+class MyEvaluator(BaseEvaluator):
+    def __init__(self, threshold: float = 0.7) -> None:
+        super().__init__(name="my_evaluator", threshold=threshold)
 
     def _run_evaluation(self, prompt, expected_output, model_output, metadata):
-        # Your custom logic here
-        score = run_toxicity_model(model_output)
+        score = ...  # your scoring logic
         return EvaluationResult(
-            evaluator_name=self.name,
-            passed=score >= self.threshold,
+            evaluator_name=self._name,
+            passed=score >= self._threshold,
             score=score,
+            details={"custom_metric": ...},
         )
 ```
 
+Register in `evaluators/__init__.py` and add to `build_evaluators()` in `utils/evaluation_pipeline.py`.
+
 ---
 
-## Professional Disclaimer
+## Requirements
 
-This toolkit reflects applied experience in **Reinforcement Learning from Human Feedback (RLHF)** and **model alignment**. The evaluation strategies implemented here — keyword anchoring for hallucination detection, composite weighted scoring, and schema-based format validation — are informed by practices used in production ML systems at scale.
-
-This tool does **not** replace human evaluation or red-teaming. It is designed as an **automated first-pass quality gate** to catch systematic failures before human reviewers spend time on clearly non-compliant outputs.
-
-**LLM outputs evaluated by this tool are based on pre-recorded `model_output` fields in the test case JSON files.** The suite does not make live API calls to any LLM provider. To evaluate a real model, populate the `model_output` field with the model's actual responses before running the benchmark.
+- Python 3.11+
+- `scikit-learn>=1.4.0` — TF-IDF vectorization
+- `jsonschema>=4.21.0` — JSON Schema validation
+- `numpy>=1.26.0` — matrix operations
+- `openai>=1.30.0` — OpenAI live inference or judge *(optional)*
+- `anthropic>=0.18.0` — Anthropic live inference or judge *(optional)*
 
 ---
 
 ## License
 
-MIT — Free to use, modify, and distribute with attribution.
+MIT — see [LICENSE](LICENSE)

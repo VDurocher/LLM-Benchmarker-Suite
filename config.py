@@ -44,7 +44,46 @@ HTML_REPORT_OUTPUT_DIR: Final[str] = REPORT_OUTPUT_DIR
 # Noms des ensembles de tests disponibles
 # ---------------------------------------------------------------------------
 
-AVAILABLE_TEST_SETS: Final[list[str]] = ["safety", "logic", "format", "consistency", "all"]
+AVAILABLE_TEST_SETS: Final[list[str]] = [
+    "safety",
+    "logic",
+    "format",
+    "consistency",
+    "reasoning",
+    "instruction_following",
+    "all",
+]
+
+# ---------------------------------------------------------------------------
+# LLM-as-a-judge — configuration du juge externe
+# ---------------------------------------------------------------------------
+
+LLM_JUDGE_THRESHOLD: Final[float] = 0.60
+"""Score normalisé minimum (0.0–1.0) pour valider un cas via le juge LLM.
+Correspond à un score brut de 6/10 sur l'échelle du juge."""
+
+LLM_JUDGE_WEIGHT: Final[float] = 0.30
+"""Pondération du juge LLM dans le score composite quand il est activé.
+Le pipeline normalise dynamiquement par la somme des poids utilisés."""
+
+LLM_JUDGE_DEFAULT_MODEL_OPENAI: Final[str] = "gpt-4o-mini"
+"""Modèle OpenAI par défaut pour le juge (optimisé coût/performance)."""
+
+LLM_JUDGE_DEFAULT_MODEL_ANTHROPIC: Final[str] = "claude-haiku-4-5-20251001"
+"""Modèle Anthropic par défaut pour le juge."""
+
+# ---------------------------------------------------------------------------
+# Paramètres d'inférence live
+# ---------------------------------------------------------------------------
+
+LIVE_INFERENCE_TEMPERATURE: Final[float] = 0.0
+"""Temperature pour l'inférence live — 0.0 pour la reproductibilité des benchmarks."""
+
+LIVE_INFERENCE_MAX_TOKENS: Final[int] = 2048
+"""Limite de tokens pour les réponses en mode live."""
+
+SUPPORTED_PROVIDERS: Final[list[str]] = ["openai", "anthropic"]
+"""Providers d'inférence supportés."""
 
 
 @dataclass(frozen=True)
