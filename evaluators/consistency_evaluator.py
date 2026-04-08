@@ -1,10 +1,10 @@
 """
-Évaluateur de cohérence interne des sorties LLM.
+Internal consistency evaluator for LLM outputs.
 
-Mesure trois dimensions via heuristiques (sans appel LLM externe) :
-1. Absence de contradictions explicites dans la réponse
-2. Respect du format demandé dans le prompt
-3. Longueur appropriée par rapport à la sortie attendue
+Measures three dimensions via heuristics (without external LLM calls):
+1. Absence of explicit contradictions in the response
+2. Compliance with the format requested in the prompt
+3. Appropriate length relative to the expected output
 """
 
 from __future__ import annotations
@@ -14,19 +14,19 @@ from typing import Any
 
 from evaluators.base_evaluator import BaseEvaluator, EvaluationResult
 
-# Ratio de longueur acceptable : entre 20 % et 300 % de l'attendu
+# Acceptable length ratio: between 20% and 300% of expected
 LENGTH_RATIO_MIN = 0.20
 LENGTH_RATIO_MAX = 3.00
 
-# Pondérations des trois dimensions de cohérence
+# Weights for the three consistency dimensions
 WEIGHT_CONTRADICTION = 0.40
 WEIGHT_LENGTH = 0.35
 WEIGHT_SENTENCE_DENSITY = 0.25
 
-# Longueur minimale d'une sortie pour évaluer la densité de phrases
+# Minimum output length to evaluate sentence density
 MIN_OUTPUT_LENGTH_FOR_DENSITY = 20
 
-# Patterns indiquant une contradiction potentielle (négatif suivi d'affirmatif)
+# Patterns indicating a potential contradiction (negative followed by affirmative)
 _CONTRADICTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(
         r"(?:je ne sais pas|n[\'']est pas|impossible|ne peut pas|je n[\'']ai pas)"
@@ -45,7 +45,7 @@ _CONTRADICTION_PATTERNS: list[re.Pattern[str]] = [
     ),
 ]
 
-# Formats détectables dans les prompts et leurs indicateurs dans la sortie
+# Detectable formats in prompts and their output indicators
 _FORMAT_SIGNALS: dict[str, list[str]] = {
     "json": ["{", "}", '":', "["],
     "list": ["-", "*", "1.", "•"],
@@ -53,7 +53,7 @@ _FORMAT_SIGNALS: dict[str, list[str]] = {
     "markdown": ["##", "**", "__", "```"],
 }
 
-# Mots-clés dans le prompt suggérant un format attendu
+# Keywords in the prompt suggesting an expected format
 _FORMAT_PROMPT_KEYWORDS: dict[str, list[str]] = {
     "json": ["json", "object", "dict", "response body", "payload"],
     "list": ["list", "enumerate", "bullet", "steps", "items"],
@@ -64,23 +64,23 @@ _FORMAT_PROMPT_KEYWORDS: dict[str, list[str]] = {
 
 def _score_contradictions(model_output: str) -> float:
     """
-    Calcule un score basé sur l'absence de contradictions.
-    Retourne 1.0 si aucune contradiction détectée, 0.0 si contradiction forte.
+    Computes a score based on the absence of contradictions.
+    Returns 1.0 if no contradiction detected, 0.0 if strong contradiction.
     """
     contradiction_count = sum(
         1 for pattern in _CONTRADICTION_PATTERNS if pattern.search(model_output)
     )
     if contradiction_count == 0:
         return 1.0
-    # Chaque contradiction détectée pénalise de 0.4, minimum 0.0
+    # Each detected contradiction penalizes by 0.4, minimum 0.0
     return max(0.0, 1.0 - contradiction_count * 0.4)
 
 
 def _score_length(expected_output: str, model_output: str) -> float:
     """
-    Calcule un score de longueur relative.
-    Score maximal si la sortie est entre 20 % et 300 % de la longueur attendue.
-    Dégradation linéaire en dehors de cette plage.
+    Computes a relative length score.
+    Maximum score if the output is between 20% and 300% of the expected length.
+    Linear degradation outside this range.
     """
     expected_len = max(len(expected_output.strip()), 1)
     model_len = len(model_output.strip())
@@ -90,18 +90,18 @@ def _score_length(expected_output: str, model_output: str) -> float:
         return 1.0
 
     if ratio < LENGTH_RATIO_MIN:
-        # Sortie trop courte — dégradation de 0 à ratio/min
+        # Output too short — degradation from 0 to ratio/min
         return max(0.0, ratio / LENGTH_RATIO_MIN)
 
-    # Sortie trop longue — dégradation progressive au-delà de 300 %
+    # Output too long — progressive degradation beyond 300%
     excess = ratio - LENGTH_RATIO_MAX
     return max(0.0, 1.0 - (excess / LENGTH_RATIO_MAX) * 0.5)
 
 
 def _score_sentence_density(model_output: str) -> float:
     """
-    Évalue la densité des phrases : ratio mots/phrases raisonnable.
-    Une sortie cohérente a entre 5 et 40 mots par phrase en moyenne.
+    Evaluates sentence density: reasonable word-to-sentence ratio.
+    A coherent output has between 5 and 40 words per sentence on average.
     """
     stripped = model_output.strip()
     if len(stripped) < MIN_OUTPUT_LENGTH_FOR_DENSITY:
@@ -119,17 +119,17 @@ def _score_sentence_density(model_output: str) -> float:
     if 5 <= avg_words <= 40:
         return 1.0
     if avg_words < 5:
-        # Phrases trop courtes (fragments)
+        # Sentences too short (fragments)
         return max(0.0, avg_words / 5)
-    # Phrases très longues (blocs indigestes)
+    # Very long sentences (indigestible blocks)
     return max(0.0, 1.0 - (avg_words - 40) / 60)
 
 
 def _detect_format_mismatch(prompt: str, model_output: str) -> bool:
     """
-    Détecte si le prompt demande un format spécifique mais que la sortie
-    ne présente aucun signal de ce format.
-    Retourne True si une incohérence de format est détectée.
+    Detects if the prompt requests a specific format but the output
+    shows no signal of that format.
+    Returns True if a format inconsistency is detected.
     """
     prompt_lower = prompt.lower()
 
@@ -149,14 +149,14 @@ def _detect_format_mismatch(prompt: str, model_output: str) -> bool:
 
 class ConsistencyEvaluator(BaseEvaluator):
     """
-    Évalue la cohérence interne de la sortie LLM.
+    Evaluates the internal consistency of LLM output.
 
-    Dimensions analysées :
-    - Absence de contradiction explicite (phrases négation + affirmation)
-    - Respect du format demandé dans le prompt
-    - Longueur appropriée (ni trop courte ni excessive)
+    Dimensions analyzed:
+    - Absence of explicit contradiction (negation + affirmation sentences)
+    - Compliance with the format requested in the prompt
+    - Appropriate length (neither too short nor excessive)
 
-    Algorithme entièrement basé sur des heuristiques — aucun appel LLM externe.
+    Algorithm entirely based on heuristics — no external LLM calls.
     """
 
     def __init__(self, threshold: float = 0.6) -> None:
@@ -169,16 +169,16 @@ class ConsistencyEvaluator(BaseEvaluator):
         model_output: str,
         metadata: dict[str, Any],
     ) -> EvaluationResult:
-        # Calcul des trois sous-scores
+        # Compute the three sub-scores
         contradiction_score = _score_contradictions(model_output)
         length_score = _score_length(expected_output, model_output)
         density_score = _score_sentence_density(model_output)
 
-        # Pénalité pour incohérence de format détectée
+        # Penalty for detected format inconsistency
         format_mismatch = _detect_format_mismatch(prompt, model_output)
         format_penalty = 0.15 if format_mismatch else 0.0
 
-        # Score composite pondéré
+        # Weighted composite score
         raw_score = (
             contradiction_score * WEIGHT_CONTRADICTION
             + length_score * WEIGHT_LENGTH
