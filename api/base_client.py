@@ -1,8 +1,8 @@
 """
-Contrat abstrait pour les clients d'inférence LLM.
+Abstract contract for LLM inference clients.
 
-Tous les providers (OpenAI, Anthropic) implémentent cette interface commune,
-ce qui permet de les interchanger dans le pipeline d'évaluation.
+All providers (OpenAI, Anthropic) implement this common interface,
+allowing them to be interchanged in the evaluation pipeline.
 """
 
 from __future__ import annotations
@@ -12,11 +12,11 @@ from abc import ABC, abstractmethod
 
 class LLMClient(ABC):
     """
-    Interface commune pour l'inférence live et le LLM-as-a-judge.
+    Common interface for live inference and LLM-as-a-judge.
 
     Attributes:
-        _api_key: Clé d'API du provider.
-        _model: Identifiant du modèle cible (ex: "gpt-4o-mini").
+        _api_key: Provider API key.
+        _model: Target model identifier (e.g. "gpt-4o-mini").
     """
 
     def __init__(self, api_key: str, model: str) -> None:
@@ -25,27 +25,27 @@ class LLMClient(ABC):
 
     @property
     def model(self) -> str:
-        """Identifiant du modèle configuré."""
+        """Configured model identifier."""
         return self._model
 
     @property
     def provider(self) -> str:
-        """Nom du provider — à surcharger dans chaque sous-classe."""
+        """Provider name — to be overridden in each subclass."""
         return "unknown"
 
     @abstractmethod
     def complete(self, prompt: str, system_prompt: str | None = None) -> str:
         """
-        Envoie un prompt au modèle et retourne sa réponse en texte brut.
+        Sends a prompt to the model and returns its response as plain text.
 
         Args:
-            prompt: Le message utilisateur à envoyer.
-            system_prompt: Instruction système optionnelle (prefixe de contexte).
+            prompt: The user message to send.
+            system_prompt: Optional system instruction (context prefix).
 
         Returns:
-            La réponse du modèle sous forme de string.
+            The model's response as a string.
 
         Raises:
-            RuntimeError: Si l'appel API échoue (quota, auth, réseau).
+            RuntimeError: If the API call fails (quota, auth, network).
         """
         ...
