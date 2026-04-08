@@ -1,8 +1,8 @@
 """
-Générateur de rapport HTML pour la comparaison multi-modèles.
+HTML report generator for multi-model comparison.
 
-Produit un tableau comparatif côte à côte de plusieurs modèles LLM
-avec pass rate, score moyen, latence et mise en évidence du gagnant.
+Produces a side-by-side comparison table of multiple LLM models
+with pass rate, average score, latency and winner highlighting.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ from utils.html_primitives import (
 
 
 def _build_comparison_header(test_set: str, winner: str, winner_reason: str, now: datetime) -> str:
-    """Génère le header du rapport de comparaison."""
-    # Échappement XSS sur les champs issus des arguments CLI et des noms de modèles
+    """Generates the comparison report header."""
+    # XSS escaping on fields coming from CLI arguments and model names
     safe_test_set = html.escape(test_set)
     safe_winner = html.escape(winner)
     safe_winner_reason = html.escape(winner_reason)
@@ -33,17 +33,17 @@ def _build_comparison_header(test_set: str, winner: str, winner_reason: str, now
         f'<header style="background:linear-gradient(135deg,{COLOR_ACCENT} 0%,#4f46e5 100%);'
         f'color:#fff;padding:32px 40px;border-radius:16px;margin-bottom:28px;">'
         f'<div style="font-size:12px;font-weight:600;opacity:.75;text-transform:uppercase;'
-        f'letter-spacing:.1em;margin-bottom:6px;">LLM Benchmarker Suite — Comparaison</div>'
-        f'<h1 style="margin:0;font-size:24px;font-weight:800;">Test set : {safe_test_set}</h1>'
+        f'letter-spacing:.1em;margin-bottom:6px;">LLM Benchmarker Suite — Comparison</div>'
+        f'<h1 style="margin:0;font-size:24px;font-weight:800;">Test set: {safe_test_set}</h1>'
         f'<div style="margin-top:8px;opacity:.8;font-size:14px;">'
-        f"Gagnant : <strong>{safe_winner}</strong> — {safe_winner_reason}</div>"
+        f"Winner: <strong>{safe_winner}</strong> — {safe_winner_reason}</div>"
         f'<div style="margin-top:6px;opacity:.65;font-size:12px;">'
         f'{now.strftime("%Y-%m-%d %H:%M:%S")} UTC</div></header>'
     )
 
 
 def _build_comparison_table(model_stats: list[dict[str, Any]], winner: str) -> str:
-    """Génère le tableau comparatif multi-modèles."""
+    """Generates the multi-model comparison table."""
     th_style = (
         f'style="padding:12px 20px;text-align:left;font-size:12px;'
         f'color:{COLOR_TEXT_MUTED};font-weight:600;text-transform:uppercase;letter-spacing:.05em;"'
@@ -53,13 +53,13 @@ def _build_comparison_table(model_stats: list[dict[str, Any]], winner: str) -> s
         f'background:{COLOR_GRAY_BG};"'
     )
 
-    # En-têtes colonnes modèles — échappement XSS sur les noms de modèles (arguments CLI)
+    # Column headers for models — XSS escaping on model names (CLI arguments)
     model_headers = "".join(
         f'<th {th_style}>{html.escape(stats["model_name"])}{"  🏆" if stats["model_name"] == winner else ""}</th>'
         for stats in model_stats
     )
 
-    # Ligne pass rate avec barres de progression
+    # Pass rate row with progress bars
     pass_rate_cells = "".join(
         f'<td style="padding:12px 20px;">'
         f'<span style="font-weight:800;font-size:16px;color:{pick_color(stats["pass_rate"])};">'
@@ -78,7 +78,7 @@ def _build_comparison_table(model_stats: list[dict[str, Any]], winner: str) -> s
 
     row_border = f'style="border-bottom:1px solid {COLOR_GRAY_BORDER};"'
 
-    # Pré-calcul des cellules pour éviter les f-strings imbriqués avec backslashes (Python 3.11)
+    # Pre-compute cells to avoid nested f-strings with backslashes (Python 3.11)
     avg_score_cells = _value_cells(["{:.4f}".format(s["avg_score"]) for s in model_stats])
     passed_cells = _value_cells(["{} / {}".format(s["passed_cases"], s["total_cases"]) for s in model_stats])
     latency_cells = _value_cells(["{:.0f} ms".format(s["total_latency_ms"]) for s in model_stats])
@@ -88,16 +88,16 @@ def _build_comparison_table(model_stats: list[dict[str, Any]], winner: str) -> s
         f'border-radius:12px;margin-bottom:28px;overflow:hidden;">'
         f'<div style="padding:18px 24px;border-bottom:1px solid {COLOR_GRAY_BORDER};">'
         f'<h2 style="margin:0;font-size:17px;font-weight:700;color:{COLOR_TEXT_DARK};">'
-        f"Comparaison des modèles</h2></div>"
+        f"Model comparison</h2></div>"
         f'<div style="overflow-x:auto;">'
         f'<table style="width:100%;border-collapse:collapse;">'
         f'<thead><tr style="background:{COLOR_GRAY_BG};border-bottom:1px solid {COLOR_GRAY_BORDER};">'
-        f'<th {th_style}>Métrique</th>{model_headers}</tr></thead>'
+        f'<th {th_style}>Metric</th>{model_headers}</tr></thead>'
         f"<tbody>"
         f'<tr {row_border}><td {label_style}>Pass rate</td>{pass_rate_cells}</tr>'
-        f'<tr {row_border}><td {label_style}>Score moyen</td>{avg_score_cells}</tr>'
-        f'<tr {row_border}><td {label_style}>Cas passés</td>{passed_cells}</tr>'
-        f'<tr {row_border}><td {label_style}>Latence totale</td>{latency_cells}</tr>'
+        f'<tr {row_border}><td {label_style}>Average score</td>{avg_score_cells}</tr>'
+        f'<tr {row_border}><td {label_style}>Cases passed</td>{passed_cells}</tr>'
+        f'<tr {row_border}><td {label_style}>Total latency</td>{latency_cells}</tr>'
         f"</tbody></table></div></section>"
     )
 
@@ -107,14 +107,14 @@ def build_comparison_html(
     model_stats: list[dict[str, Any]],
 ) -> str:
     """
-    Génère le document HTML complet du rapport de comparaison multi-modèles.
+    Generates the complete HTML document for the multi-model comparison report.
 
     Args:
-        report: Dictionnaire du rapport de comparaison JSON.
-        model_stats: Liste des statistiques par modèle dans l'ordre d'affichage.
+        report: Comparison report JSON dictionary.
+        model_stats: List of per-model statistics in display order.
 
     Returns:
-        Contenu HTML complet du rapport.
+        Complete HTML content of the report.
     """
     now = datetime.now(tz=timezone.utc)
     winner = report["winner"]
@@ -124,8 +124,8 @@ def build_comparison_html(
     footer = (
         f'<footer style="text-align:center;padding:20px;color:{COLOR_TEXT_MUTED};'
         f'font-size:12px;border-top:1px solid {COLOR_GRAY_BORDER};">'
-        f'Généré par <strong style="color:{COLOR_ACCENT};">LLM-Benchmarker-Suite</strong>'
-        f' — {now.strftime("%Y-%m-%d à %H:%M:%S")} UTC</footer>'
+        f'Generated by <strong style="color:{COLOR_ACCENT};">LLM-Benchmarker-Suite</strong>'
+        f' — {now.strftime("%Y-%m-%d at %H:%M:%S")} UTC</footer>'
     )
 
     body = (
@@ -133,4 +133,4 @@ def build_comparison_html(
         + _build_comparison_table(model_stats, winner)
         + footer
     )
-    return html_page_wrapper(title=f"Comparaison — {test_set}", body_content=body)
+    return html_page_wrapper(title=f"Comparison — {test_set}", body_content=body)
