@@ -1,9 +1,8 @@
 """
-Primitives de rendu HTML partagées entre les générateurs de rapports.
+Shared HTML rendering primitives between report generators.
 
-Contient les constantes de couleur, les fonctions de rendu de composants
-atomiques (barre de progression, card, ligne de tableau) utilisées dans
-html_report.py et html_comparison.py.
+Contains color constants and atomic component rendering functions
+(progress bar, card, table row) used in html_report.py and html_comparison.py.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from typing import Any
 
 from config import PASS_RATE_TARGET
 
-# Palettes de couleurs du design system
+# Design system color palette
 COLOR_GREEN = "#10b981"
 COLOR_ORANGE = "#f59e0b"
 COLOR_RED = "#ef4444"
@@ -23,12 +22,12 @@ COLOR_GRAY_BORDER = "#e2e8f0"
 COLOR_TEXT_DARK = "#1e293b"
 COLOR_TEXT_MUTED = "#64748b"
 
-# Seuil orange : pass rate ≥ 70 %
+# Orange threshold: pass rate >= 70%
 PASS_RATE_ORANGE_THRESHOLD = 0.70
 
 
 def pick_color(pass_rate: float) -> str:
-    """Retourne la couleur CSS correspondant au niveau de pass rate."""
+    """Returns the CSS color corresponding to the pass rate level."""
     if pass_rate >= PASS_RATE_TARGET:
         return COLOR_GREEN
     if pass_rate >= PASS_RATE_ORANGE_THRESHOLD:
@@ -37,7 +36,7 @@ def pick_color(pass_rate: float) -> str:
 
 
 def render_progress_bar(value: float, color: str, height: str = "10px") -> str:
-    """Génère une barre de progression HTML inline."""
+    """Generates an inline HTML progress bar."""
     pct = round(value * 100, 1)
     return (
         f'<div style="background:{COLOR_GRAY_BORDER};border-radius:9999px;'
@@ -48,8 +47,8 @@ def render_progress_bar(value: float, color: str, height: str = "10px") -> str:
 
 
 def render_stat_card(label: str, value: str, sub: str = "") -> str:
-    """Génère une card de statistique."""
-    # Échappement XSS sur les valeurs dynamiques injectées dans le HTML
+    """Generates a statistics card."""
+    # XSS escaping on dynamically injected values
     safe_label = html.escape(label)
     safe_value = html.escape(value)
     safe_sub = html.escape(sub)
@@ -70,11 +69,11 @@ def render_stat_card(label: str, value: str, sub: str = "") -> str:
 
 
 def render_evaluator_row(name: str, stats: dict[str, Any]) -> str:
-    """Génère une ligne de breakdown pour un évaluateur."""
+    """Generates a breakdown row for an evaluator."""
     pass_rate = stats["pass_rate"]
     color = pick_color(pass_rate)
     bar = render_progress_bar(pass_rate, color, height="6px")
-    # Échappement XSS sur le nom de l'évaluateur (peut provenir du JSON)
+    # XSS escaping on the evaluator name (may come from JSON)
     safe_name = html.escape(name)
     return (
         f"<tr>"
@@ -91,13 +90,13 @@ def render_evaluator_row(name: str, stats: dict[str, Any]) -> str:
 
 
 def render_case_row(case: dict[str, Any]) -> str:
-    """Génère une ligne du tableau des cas de test."""
+    """Generates a row for the test cases table."""
     passed = case["passed"]
     badge_color = COLOR_GREEN if passed else COLOR_RED
     badge_label = "PASS" if passed else "FAIL"
     badge_bg = "#ecfdf5" if passed else "#fef2f2"
 
-    # Échappement XSS sur les champs issus du JSON (noms d'évaluateurs, case_id, prompt)
+    # XSS escaping on fields from JSON (evaluator names, case_id, prompt)
     evaluators_html = "".join(
         f'<span style="display:inline-block;margin:2px;padding:2px 8px;'
         f'background:{"#ecfdf5" if ev["passed"] else "#fef2f2"};'
@@ -109,9 +108,9 @@ def render_case_row(case: dict[str, Any]) -> str:
 
     score_pct = round(case["composite_score"] * 100, 1)
     bar = render_progress_bar(case["composite_score"], badge_color, "5px")
-    # Échappement du prompt (peut contenir du contenu arbitraire d'un LLM)
+    # Escape the prompt (may contain arbitrary LLM content)
     prompt_preview = html.escape(case.get("prompt_preview", ""))
-    # Échappement du case_id (provient du JSON de test)
+    # Escape the case_id (comes from the test JSON)
     safe_case_id = html.escape(case["case_id"])
 
     return (
@@ -133,11 +132,11 @@ def render_case_row(case: dict[str, Any]) -> str:
 
 
 def html_page_wrapper(title: str, body_content: str) -> str:
-    """Enveloppe le contenu dans un document HTML5 complet."""
-    # Échappement XSS sur le titre (contient le nom du modèle)
+    """Wraps content in a complete HTML5 document."""
+    # XSS escaping on the title (contains the model name)
     safe_title = html.escape(title)
     return (
-        f"<!DOCTYPE html>\n<html lang='fr'>\n<head>\n"
+        f"<!DOCTYPE html>\n<html lang='en'>\n<head>\n"
         f'  <meta charset="UTF-8">\n'
         f'  <meta name="viewport" content="width=device-width,initial-scale=1">\n'
         f"  <title>{safe_title}</title>\n"
