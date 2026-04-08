@@ -1,8 +1,8 @@
 """
-Évaluateur de similarité sémantique par cosinus (TF-IDF).
+Semantic similarity evaluator using cosine similarity (TF-IDF).
 
-Mesure à quel point la réponse du modèle est sémantiquement proche
-de la sortie attendue, indépendamment de la formulation exacte.
+Measures how semantically close the model response is
+to the expected output, regardless of exact phrasing.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from evaluators.base_evaluator import BaseEvaluator, EvaluationResult
 
 
 def _normalize_text(text: str) -> str:
-    """Normalisation légère : lowercase + suppression de la ponctuation excessive."""
+    """Light normalization: lowercase + removal of excessive punctuation."""
     text = text.lower().strip()
     text = re.sub(r"[^\w\s]", " ", text)
     text = re.sub(r"\s+", " ", text)
@@ -28,22 +28,22 @@ def _normalize_text(text: str) -> str:
 
 class SimilarityEvaluator(BaseEvaluator):
     """
-    Compare la sortie du modèle à la réponse attendue via similarité cosinus TF-IDF.
+    Compares the model output to the expected response via TF-IDF cosine similarity.
 
-    Avantages par rapport à une comparaison exacte :
-    - Insensible aux reformulations synonymiques mineures.
-    - Robuste aux variations d'ordre de mots.
-    - Aucune dépendance à un modèle d'embeddings externe (rapide, déterministe).
+    Advantages over exact comparison:
+    - Insensitive to minor synonymic reformulations.
+    - Robust to word order variations.
+    - No dependency on an external embedding model (fast, deterministic).
 
-    Limites connues :
-    - Ne capture pas la sémantique profonde (utiliser sentence-transformers pour ça).
-    - Sensible aux variations de domaine technique (vocabulaire très spécifique).
+    Known limitations:
+    - Does not capture deep semantics (use sentence-transformers for that).
+    - Sensitive to technical domain variations (very specific vocabulary).
     """
 
     def __init__(self, threshold: float = SIMILARITY_THRESHOLD) -> None:
         super().__init__(name="similarity_cosine", threshold=threshold)
-        # Vectoriseur partagé — réinitialisé à chaque évaluation pour éviter
-        # les fuites de vocabulaire entre les cas de test
+        # Shared vectorizer — reinitialized at each evaluation to avoid
+        # vocabulary leakage between test cases
         self._vectorizer = TfidfVectorizer(
             ngram_range=(1, 2),
             min_df=1,
@@ -57,20 +57,20 @@ class SimilarityEvaluator(BaseEvaluator):
         model_output: str,
         metadata: dict[str, Any],
     ) -> EvaluationResult:
-        # Normalisation des textes avant vectorisation
+        # Normalize texts before vectorization
         normalized_expected = _normalize_text(expected_output)
         normalized_model = _normalize_text(model_output)
 
-        # Corpus minimal : référence + réponse modèle
+        # Minimal corpus: reference + model response
         corpus = [normalized_expected, normalized_model]
         tfidf_matrix = self._vectorizer.fit_transform(corpus)
 
-        # Score cosinus entre les deux vecteurs
+        # Cosine score between the two vectors
         similarity_score = float(
             cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
         )
 
-        # Calcul des tokens communs pour le détail du rapport
+        # Compute common tokens for the report detail
         expected_tokens = set(normalized_expected.split())
         model_tokens = set(normalized_model.split())
         common_tokens = expected_tokens & model_tokens
