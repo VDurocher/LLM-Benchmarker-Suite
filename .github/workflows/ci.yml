@@ -28,8 +28,8 @@ jobs:
       - name: Install dependencies
         # Install runtime deps + test tools directly.
         # Editable install fails with flat-layout multi-package discovery.
-        # PYTHONPATH is set in the test step to allow imports from the project root.
+        # test_html_reports.py is excluded: requires Playwright browser + pre-generated reports.
         run: pip install "scikit-learn>=1.4.0" "jsonschema>=4.21.0" "numpy>=1.26.0" "openai>=1.30.0" "anthropic>=0.18.0" pytest pytest-cov
 
       - name: Run tests
-        run: PYTHONPATH=${{ github.workspace }} pytest tests/ -v --tb=short
+        run: PYTHONPATH="${GITHUB_WORKSPACE}" pytest tests/ -v --tb=short --ignore=tests/test_html_reports.py
