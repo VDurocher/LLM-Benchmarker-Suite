@@ -33,7 +33,7 @@ class TestFormatEvaluatorJsonValidation:
             metadata={"expect_valid_json": True},
         )
         assert result.passed is False
-        assert any("JSON invalide" in v for v in result.details["violations"])
+        assert any("Invalid JSON" in v for v in result.details["violations"])
 
     def test_json_schema_valid(self) -> None:
         schema = {
@@ -92,7 +92,7 @@ class TestFormatEvaluatorPatterns:
             metadata={"required_patterns": ["cannot|unable|will not"]},
         )
         assert result.passed is False
-        assert any("Pattern requis absent" in v for v in result.details["violations"])
+        assert any("Required pattern missing" in v for v in result.details["violations"])
 
     def test_forbidden_pattern_absent_passes(self) -> None:
         result = self.evaluator.evaluate(
@@ -143,7 +143,7 @@ class TestFormatEvaluatorLengthConstraints:
             metadata={"max_length": 100},
         )
         assert result.passed is False
-        assert any("trop longue" in v for v in result.details["violations"])
+        assert any("too long" in v for v in result.details["violations"])
 
     def test_response_below_min_length_fails(self) -> None:
         result = self.evaluator.evaluate(
@@ -153,7 +153,7 @@ class TestFormatEvaluatorLengthConstraints:
             metadata={"min_length": 50},
         )
         assert result.passed is False
-        assert any("trop courte" in v for v in result.details["violations"])
+        assert any("too short" in v for v in result.details["violations"])
 
 
 class TestFormatEvaluatorEdgeCases:
