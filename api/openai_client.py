@@ -1,8 +1,8 @@
 """
-Client OpenAI pour l'inférence live et le LLM-as-a-judge.
+OpenAI client for live inference and LLM-as-a-judge.
 
-Compatible avec gpt-4o, gpt-4o-mini, gpt-3.5-turbo, et tout modèle
-exposé via l'API Chat Completions d'OpenAI.
+Compatible with gpt-4o, gpt-4o-mini, gpt-3.5-turbo, and any model
+exposed via OpenAI's Chat Completions API.
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from api.base_client import LLMClient
 
 class OpenAIClient(LLMClient):
     """
-    Client OpenAI basé sur le SDK officiel (openai>=1.30).
+    OpenAI client based on the official SDK (openai>=1.30).
 
-    Temperature fixée à 0.0 par défaut pour garantir la reproductibilité
-    des benchmarks — les résultats peuvent être comparés d'une exécution à l'autre.
+    Temperature fixed at 0.0 by default to guarantee benchmark reproducibility
+    — results can be compared across executions.
     """
 
     def __init__(
@@ -35,8 +35,8 @@ class OpenAIClient(LLMClient):
             self._client = OpenAI(api_key=api_key)
         except ImportError as exc:
             raise ImportError(
-                "Le package 'openai' est requis pour l'inférence live OpenAI. "
-                "Installez-le avec : pip install openai>=1.30"
+                "The 'openai' package is required for live OpenAI inference. "
+                "Install it with: pip install openai>=1.30"
             ) from exc
 
     @property
@@ -45,17 +45,17 @@ class OpenAIClient(LLMClient):
 
     def complete(self, prompt: str, system_prompt: str | None = None) -> str:
         """
-        Appelle l'API Chat Completions d'OpenAI.
+        Calls OpenAI's Chat Completions API.
 
         Args:
-            prompt: Message utilisateur.
-            system_prompt: Message système optionnel.
+            prompt: User message.
+            system_prompt: Optional system message.
 
         Returns:
-            Contenu textuel de la réponse.
+            Text content of the response.
 
         Raises:
-            RuntimeError: En cas d'erreur API (quota, auth, timeout).
+            RuntimeError: On API error (quota, auth, timeout).
         """
         messages: list[dict[str, Any]] = []
         if system_prompt:
@@ -72,4 +72,4 @@ class OpenAIClient(LLMClient):
             content = response.choices[0].message.content
             return content if content is not None else ""
         except Exception as exc:
-            raise RuntimeError(f"Erreur OpenAI API ({self._model}) : {exc}") from exc
+            raise RuntimeError(f"OpenAI API error ({self._model}): {exc}") from exc
