@@ -1,13 +1,12 @@
 """
-Évaluateur LLM-as-a-judge.
+LLM-as-a-judge evaluator.
 
-Utilise un LLM externe (GPT-4o-mini ou Claude Haiku par défaut) pour évaluer
-la qualité d'une réponse sur des critères qualitatifs difficiles à mesurer
-algorithmiquement : exactitude, complétude, sécurité, pertinence.
+Uses an external LLM (GPT-4o-mini or Claude Haiku by default) to evaluate
+the quality of a response on qualitative criteria that are difficult to measure
+algorithmically: accuracy, completeness, safety, relevance.
 
-Référence méthodologique : "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"
-(Zheng et al., 2023) — approche standard dans les pipelines RLHF et d'évaluation
-de modèles en production.
+Methodological reference: "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"
+(Zheng et al., 2023) — standard approach in RLHF and production model evaluation pipelines.
 """
 
 from __future__ import annotations
@@ -19,7 +18,7 @@ from typing import Any
 from config import LLM_JUDGE_THRESHOLD
 from evaluators.base_evaluator import BaseEvaluator, EvaluationResult
 
-# Prompt système du juge — conçu pour obtenir une évaluation structurée et reproductible
+# Judge system prompt — designed to obtain a structured and reproducible evaluation
 _JUDGE_SYSTEM_PROMPT = """You are an expert LLM output evaluator for production AI systems.
 
 Your task is to score a model response against a reference answer.
@@ -48,7 +47,7 @@ Response format:
   "reasoning": "<one concise sentence explaining the overall score>"
 }"""
 
-# Template du message utilisateur envoyé au juge
+# User message template sent to the judge
 _JUDGE_USER_TEMPLATE = """## Original Prompt
 {prompt}
 
@@ -63,16 +62,16 @@ Evaluate the Model Output against the Reference Answer."""
 
 def _parse_judge_response(raw_response: str) -> dict[str, Any]:
     """
-    Extrait le JSON de la réponse du juge, même si elle contient du texte parasite.
-    Retourne un dict vide si le parsing échoue.
+    Extracts the JSON from the judge's response, even if it contains extraneous text.
+    Returns an empty dict if parsing fails.
     """
-    # Tentative directe
+    # Direct attempt
     try:
         return dict(json.loads(raw_response.strip()))
     except json.JSONDecodeError:
         pass
 
-    # Extraction du premier bloc JSON dans la réponse (cas où le juge ajoute du texte)
+    # Extract the first JSON block in the response (case where the judge adds text)
     json_match = re.search(r"\{[^{}]*\}", raw_response, re.DOTALL)
     if json_match:
         try:
@@ -85,13 +84,13 @@ def _parse_judge_response(raw_response: str) -> dict[str, Any]:
 
 class LLMJudgeEvaluator(BaseEvaluator):
     """
-    Évalue la qualité d'une réponse LLM via un modèle juge externe.
+    Evaluates the quality of an LLM response via an external judge model.
 
-    Contrairement aux évaluateurs déterministes (TF-IDF, keyword matching),
-    le juge LLM évalue des dimensions qualitatives comme la pertinence contextuelle,
-    la correction des raisonnements, et la cohérence interne.
+    Unlike deterministic evaluators (TF-IDF, keyword matching),
+    the LLM judge evaluates qualitative dimensions such as contextual relevance,
+    correctness of reasoning, and internal coherence.
 
-    Usage :
+    Usage:
         from api.openai_client import OpenAIClient
         client = OpenAIClient(api_key="sk-...", model="gpt-4o-mini")
         judge = LLMJudgeEvaluator(judge_client=client)
@@ -105,8 +104,8 @@ class LLMJudgeEvaluator(BaseEvaluator):
     ) -> None:
         """
         Args:
-            judge_client: Instance de LLMClient (OpenAIClient ou AnthropicClient).
-            threshold: Score minimum normalisé (0.0–1.0) pour valider le cas.
+            judge_client: LLMClient instance (OpenAIClient or AnthropicClient).
+            threshold: Minimum normalized score (0.0–1.0) to validate the case.
         """
         super().__init__(name="llm_judge", threshold=threshold)
         self._judge_client = judge_client
@@ -118,20 +117,20 @@ class LLMJudgeEvaluator(BaseEvaluator):
         model_output: str,
         metadata: dict[str, Any],
     ) -> EvaluationResult:
-        # Construction du message utilisateur avec les trois éléments à évaluer
+        # Build the user message with the three elements to evaluate
         user_message = _JUDGE_USER_TEMPLATE.format(
             prompt=prompt,
             expected_output=expected_output,
             model_output=model_output,
         )
 
-        # Appel au juge LLM
+        # Call the LLM judge
         raw_response = self._judge_client.complete(
             prompt=user_message,
             system_prompt=_JUDGE_SYSTEM_PROMPT,
         )
 
-        # Parsing de la réponse structurée
+        # Parse the structured response
         parsed = _parse_judge_response(raw_response)
 
         if not parsed:
@@ -139,14 +138,14 @@ class LLMJudgeEvaluator(BaseEvaluator):
                 evaluator_name=self._name,
                 passed=False,
                 score=0.0,
-                error=f"Le juge n'a pas retourné un JSON valide. Réponse brute : {raw_response[:200]}",
+                error=f"The judge did not return valid JSON. Raw response: {raw_response[:200]}",
             )
 
-        # Extraction et validation du score
+        # Extract and validate the score
         raw_score: int = int(parsed.get("score", 0))
         raw_score = max(0, min(10, raw_score))  # Clamp 0–10
 
-        # Normalisation 0–10 → 0.0–1.0
+        # Normalize 0–10 -> 0.0–1.0
         normalized_score = raw_score / 10.0
 
         passed = normalized_score >= self._threshold
