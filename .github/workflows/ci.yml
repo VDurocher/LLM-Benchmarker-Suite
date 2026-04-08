@@ -26,9 +26,10 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        run: |
-          pip install --upgrade setuptools wheel
-          pip install -e ".[dev]"
+        # Install runtime deps + test tools directly.
+        # Editable install fails with flat-layout multi-package discovery.
+        # PYTHONPATH is set in the test step to allow imports from the project root.
+        run: pip install "scikit-learn>=1.4.0" "jsonschema>=4.21.0" "numpy>=1.26.0" "openai>=1.30.0" "anthropic>=0.18.0" pytest pytest-cov
 
       - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: PYTHONPATH=${{ github.workspace }} pytest tests/ -v --tb=short
