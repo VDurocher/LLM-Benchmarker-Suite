@@ -1,12 +1,12 @@
 """
-Générateur de rapports JSON pour le suite LLM-Benchmarker.
+JSON report generator for the LLM-Benchmarker Suite.
 
-Produit un rapport structuré et versionné incluant :
-- Métadonnées de session (modèle, ensemble de tests, timestamp)
-- Résultats par cas de test avec scores détaillés
-- Statistiques agrégées (pass rate, score moyen, latence)
-- Verdicts par dimension d'évaluation
-- Signal de conformité par rapport à l'objectif de production (99%)
+Produces a structured, versioned report including:
+- Session metadata (model, test set, timestamp)
+- Per-test-case results with detailed scores
+- Aggregated statistics (pass rate, average score, latency)
+- Verdicts per evaluation dimension
+- Production compliance signal against the target (99%)
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ logger = get_logger(__name__)
 
 class ReportGenerator:
     """
-    Agrège les résultats d'évaluation et génère un rapport JSON complet.
+    Aggregates evaluation results and generates a complete JSON report.
 
-    Usage typique :
+    Typical usage:
         generator = ReportGenerator(model_name="gpt-4o", test_set="safety")
         generator.add_case_result(case_id="tc_001", results=[...])
         report_path = generator.save()
@@ -51,7 +51,7 @@ class ReportGenerator:
         composite_score: float,
         passed: bool,
     ) -> None:
-        """Enregistre les résultats d'un cas de test dans le rapport."""
+        """Records the results of a test case in the report."""
         self._case_results.append(
             {
                 "case_id": case_id,
@@ -76,23 +76,23 @@ class ReportGenerator:
         )
 
     def build(self) -> dict[str, Any]:
-        """Construit et retourne le dictionnaire de rapport complet."""
+        """Builds and returns the complete report dictionary."""
         session_end = datetime.now(tz=timezone.utc)
         total_cases = len(self._case_results)
         passed_cases = sum(1 for case in self._case_results if case["passed"])
         pass_rate = passed_cases / total_cases if total_cases > 0 else 0.0
 
-        # Statistiques par évaluateur (module partagé avec html_report.py)
+        # Per-evaluator statistics (shared module with html_report.py)
         evaluator_stats = compute_evaluator_stats(self._case_results)
 
-        # Score moyen composite
+        # Average composite score
         avg_score = (
             sum(case["composite_score"] for case in self._case_results) / total_cases
             if total_cases > 0
             else 0.0
         )
 
-        # Latence totale d'évaluation
+        # Total evaluation latency
         total_latency_ms = sum(
             evaluator["latency_ms"]
             for case in self._case_results
@@ -133,14 +133,14 @@ class ReportGenerator:
 
     def save(self, output_dir: str | None = None) -> Path:
         """
-        Persiste le rapport JSON dans le répertoire de sortie.
-        Retourne le chemin absolu du fichier créé.
+        Persists the JSON report to the output directory.
+        Returns the absolute path of the created file.
         """
         target_dir = Path(output_dir or REPORT_OUTPUT_DIR)
         target_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = self._session_start.strftime("%Y%m%d_%H%M%S")
-        # Sanitisation du nom de modèle pour éviter le path traversal dans le nom de fichier
+        # Sanitise model name to prevent path traversal in filename
         safe_model = re.sub(r"[^a-zA-Z0-9_.-]", "_", self._model_name)
         filename = f"benchmark_{safe_model}_{self._test_set}_{timestamp}.json"
         output_path = target_dir / filename
@@ -150,10 +150,8 @@ class ReportGenerator:
             json.dump(report, file_handle, indent=2, ensure_ascii=False)
 
         logger.info(
-            "Rapport sauvegardé → %s (pass rate: %.1f%%)",
+            "Report saved → %s (pass rate: %.1f%%)",
             output_path,
             report["summary"]["pass_rate_percent"],
         )
         return output_path.resolve()
-
-
