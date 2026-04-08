@@ -1,14 +1,14 @@
 """
-Évaluateur de détection d'hallucinations.
+Hallucination detection evaluator.
 
-Stratégie hybride en deux passes :
-1. Vérification des faits-clés (keyword anchoring) — les entités nommées et
-   termes factuels de la réponse attendue doivent apparaître dans la réponse modèle.
-2. Détection de clauses contradictoires — si le modèle affirme explicitement
-   le contraire d'un fait attendu, le cas est signalé comme hallucination.
+Hybrid two-pass strategy:
+1. Key fact verification (keyword anchoring) — named entities and
+   factual terms from the expected response must appear in the model response.
+2. Contradicting clause detection — if the model explicitly asserts
+   the opposite of an expected fact, the case is flagged as a hallucination.
 
-Référence méthodologique : inspiré de SelfCheckGPT et des approches NLI légères
-utilisées dans les pipelines RLHF de vérification factuelle.
+Methodological reference: inspired by SelfCheckGPT and lightweight NLI approaches
+used in RLHF factual verification pipelines.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import Any
 from config import KEYWORD_MATCH_THRESHOLD, HALLUCINATION_PENALTY_WEIGHT
 from evaluators.base_evaluator import BaseEvaluator, EvaluationResult
 
-# Mots vides français et anglais — exclus du matching pour ne pas fausser le ratio
+# French and English stop words — excluded from matching to avoid skewing the ratio
 _STOP_WORDS: frozenset[str] = frozenset(
     {
         "the", "a", "an", "is", "are", "was", "were", "be", "been",
@@ -32,7 +32,7 @@ _STOP_WORDS: frozenset[str] = frozenset(
     }
 )
 
-# Patterns de négation indiquant une contradiction potentielle
+# Negation patterns indicating a potential contradiction
 _NEGATION_PATTERNS: list[str] = [
     r"\bnot\s+(\w+)",
     r"\bnever\s+(\w+)",
@@ -47,8 +47,8 @@ _NEGATION_PATTERNS: list[str] = [
 
 def _extract_keywords(text: str) -> list[str]:
     """
-    Extrait les mots significatifs d'un texte en filtrant les stop words.
-    Retourne des tokens en minuscules sans ponctuation.
+    Extracts significant words from a text by filtering stop words.
+    Returns lowercase tokens without punctuation.
     """
     tokens = re.findall(r"\b[a-zA-Z]{3,}\b", text.lower())
     return [token for token in tokens if token not in _STOP_WORDS]
@@ -56,8 +56,8 @@ def _extract_keywords(text: str) -> list[str]:
 
 def _has_contradiction(expected_output: str, model_output: str) -> tuple[bool, list[str]]:
     """
-    Détecte si le modèle contredit explicitement un fait de la réponse attendue.
-    Retourne (contradiction_detected, liste des patterns trouvés).
+    Detects if the model explicitly contradicts a fact from the expected response.
+    Returns (contradiction_detected, list of patterns found).
     """
     detected_patterns: list[str] = []
     model_lower = model_output.lower()
@@ -72,12 +72,12 @@ def _has_contradiction(expected_output: str, model_output: str) -> tuple[bool, l
 
 class HallucinationEvaluator(BaseEvaluator):
     """
-    Détecte les hallucinations par ancrage de faits-clés et analyse de contradictions.
+    Detects hallucinations via key fact anchoring and contradiction analysis.
 
-    Score retourné :
-    - 1.0  → aucune hallucination détectée, tous les faits-clés présents
-    - 0.5–0.99 → faits partiellement présents, aucune contradiction flagrante
-    - 0.0–0.49 → hallucination probable (faits manquants + contradictions)
+    Returned score:
+    - 1.0  -> no hallucination detected, all key facts present
+    - 0.5–0.99 -> facts partially present, no flagrant contradiction
+    - 0.0–0.49 -> probable hallucination (missing facts + contradictions)
     """
 
     def __init__(self, threshold: float = KEYWORD_MATCH_THRESHOLD) -> None:
@@ -90,29 +90,29 @@ class HallucinationEvaluator(BaseEvaluator):
         model_output: str,
         metadata: dict[str, Any],
     ) -> EvaluationResult:
-        # Extraction des faits-clés depuis la réponse de référence
+        # Extract key facts from the reference response
         expected_keywords = _extract_keywords(expected_output)
         model_keywords_set = set(_extract_keywords(model_output))
 
         if not expected_keywords:
-            # Cas limite : réponse attendue vide ou sans mots significatifs
+            # Edge case: empty expected response or no significant words
             return EvaluationResult(
                 evaluator_name=self._name,
                 passed=True,
                 score=1.0,
-                details={"warning": "Aucun mot-clé extrait de la réponse attendue."},
+                details={"warning": "No keywords extracted from the expected response."},
             )
 
-        # Ratio de couverture des faits-clés
+        # Key fact coverage ratio
         matched_keywords = [kw for kw in expected_keywords if kw in model_keywords_set]
         coverage_ratio = len(matched_keywords) / len(expected_keywords)
 
-        # Détection de contradictions explicites
+        # Explicit contradiction detection
         contradiction_found, contradiction_matches = _has_contradiction(
             expected_output, model_output
         )
 
-        # Score composite avec pénalité pour contradiction
+        # Composite score with contradiction penalty
         raw_score = coverage_ratio
         if contradiction_found:
             raw_score *= HALLUCINATION_PENALTY_WEIGHT
@@ -127,7 +127,7 @@ class HallucinationEvaluator(BaseEvaluator):
             details={
                 "threshold": self._threshold,
                 "keyword_coverage_ratio": round(coverage_ratio, 4),
-                "matched_keywords": matched_keywords[:20],  # limité pour lisibilité
+                "matched_keywords": matched_keywords[:20],  # limited for readability
                 "missing_keywords": [
                     kw for kw in expected_keywords if kw not in model_keywords_set
                 ][:20],
