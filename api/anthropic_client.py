@@ -1,8 +1,8 @@
 """
-Client Anthropic pour l'inférence live et le LLM-as-a-judge.
+Anthropic client for live inference and LLM-as-a-judge.
 
-Compatible avec claude-3-5-sonnet, claude-haiku-4-5-20251001, claude-opus-4-6,
-et tout modèle exposé via l'API Messages d'Anthropic.
+Compatible with claude-3-5-sonnet, claude-haiku-4-5-20251001, claude-opus-4-6,
+and any model exposed via Anthropic's Messages API.
 """
 
 from __future__ import annotations
@@ -14,9 +14,9 @@ from api.base_client import LLMClient
 
 class AnthropicClient(LLMClient):
     """
-    Client Anthropic basé sur le SDK officiel (anthropic>=0.18).
+    Anthropic client based on the official SDK (anthropic>=0.18).
 
-    Temperature fixée à 0.0 par défaut pour la reproductibilité des benchmarks.
+    Temperature fixed at 0.0 by default for benchmark reproducibility.
     """
 
     def __init__(
@@ -34,8 +34,8 @@ class AnthropicClient(LLMClient):
             self._client = anthropic.Anthropic(api_key=api_key)
         except ImportError as exc:
             raise ImportError(
-                "Le package 'anthropic' est requis pour l'inférence Anthropic. "
-                "Installez-le avec : pip install anthropic>=0.18"
+                "The 'anthropic' package is required for Anthropic inference. "
+                "Install it with: pip install anthropic>=0.18"
             ) from exc
 
     @property
@@ -44,17 +44,17 @@ class AnthropicClient(LLMClient):
 
     def complete(self, prompt: str, system_prompt: str | None = None) -> str:
         """
-        Appelle l'API Messages d'Anthropic.
+        Calls Anthropic's Messages API.
 
         Args:
-            prompt: Message utilisateur.
-            system_prompt: Message système optionnel.
+            prompt: User message.
+            system_prompt: Optional system message.
 
         Returns:
-            Contenu textuel du premier bloc de la réponse.
+            Text content of the first block in the response.
 
         Raises:
-            RuntimeError: En cas d'erreur API (quota, auth, timeout).
+            RuntimeError: On API error (quota, auth, timeout).
         """
         kwargs: dict[str, Any] = {
             "model": self._model,
@@ -71,4 +71,4 @@ class AnthropicClient(LLMClient):
                 return str(first_block.text)
             return ""
         except Exception as exc:
-            raise RuntimeError(f"Erreur Anthropic API ({self._model}) : {exc}") from exc
+            raise RuntimeError(f"Anthropic API error ({self._model}): {exc}") from exc
