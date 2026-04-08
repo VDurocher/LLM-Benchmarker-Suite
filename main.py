@@ -1,22 +1,22 @@
 """
-LLM-Benchmarker-Suite — Point d'entrée CLI.
+LLM-Benchmarker-Suite — CLI entry point.
 
-Orchestre le pipeline complet d'évaluation :
-1. Chargement des cas de test depuis /data/
-2. Inférence live optionnelle via l'API du modèle cible
-3. Exécution des évaluateurs configurés par cas (dont LLM-as-a-judge optionnel)
-4. Calcul du score composite pondéré
-5. Génération du rapport JSON et/ou HTML dans /reports/
+Orchestrates the complete evaluation pipeline:
+1. Load test cases from /data/
+2. Optional live inference via the target model's API
+3. Run evaluators configured per case (including optional LLM-as-a-judge)
+4. Compute weighted composite score
+5. Generate JSON and/or HTML report in /reports/
 
-Usage — mode offline (model_output pré-rempli dans les JSON) :
+Usage — offline mode (model_output pre-filled in JSON files):
     python main.py --model gpt-4o --test-set safety
     python main.py --model claude-3-5-sonnet --test-set all --format both --verbose
 
-Usage — mode live (appels API réels) :
+Usage — live mode (real API calls):
     python main.py --model gpt-4o --test-set safety --live --provider openai
     python main.py --model claude-3-5-sonnet --test-set reasoning --live --provider anthropic
 
-Usage — avec LLM-as-a-judge :
+Usage — with LLM-as-a-judge:
     python main.py --model gpt-4o --test-set all --judge --judge-model gpt-4o-mini
     python main.py --model gpt-4o --test-set reasoning --live --judge --provider openai
 """
@@ -69,40 +69,40 @@ def _run_benchmark(
     judge_api_key: str | None = None,
 ) -> int:
     """
-    Pipeline principal d'évaluation.
-    Retourne 0 si le pass rate cible est atteint, 1 sinon.
+    Main evaluation pipeline.
+    Returns 0 if the target pass rate is reached, 1 otherwise.
     """
     logger.info("=" * 60)
-    logger.info("LLM-Benchmarker-Suite — Démarrage")
-    logger.info("Modèle cible : %s", model_name)
-    logger.info("Ensemble de tests : %s", test_set)
-    logger.info("Mode live : %s", "activé" if live else "désactivé")
-    logger.info("LLM-as-a-judge : %s", "activé" if judge else "désactivé")
-    logger.info("Format de rapport : %s", report_format)
+    logger.info("LLM-Benchmarker-Suite — Starting")
+    logger.info("Target model: %s", model_name)
+    logger.info("Test set: %s", test_set)
+    logger.info("Live mode: %s", "enabled" if live else "disabled")
+    logger.info("LLM-as-a-judge: %s", "enabled" if judge else "disabled")
+    logger.info("Report format: %s", report_format)
     logger.info("=" * 60)
 
     try:
         test_cases = load_test_cases(test_set)
     except FileNotFoundError as exc:
-        logger.error("Impossible de charger les tests : %s", exc)
+        logger.error("Failed to load tests: %s", exc)
         return 1
 
     if not test_cases:
-        logger.error("Aucun cas de test trouvé pour l'ensemble '%s'", test_set)
+        logger.error("No test cases found for set '%s'", test_set)
         return 1
 
-    # --- Mode live : inférence réelle via l'API ---
+    # --- Live mode: real inference via API ---
     if live:
         try:
             resolved_key = resolve_api_key(provider, api_key)
             inference_client = build_api_client(provider=provider, api_key=resolved_key, model=model_name)
-            logger.info("Inférence live activée : %s/%s", provider, model_name)
+            logger.info("Live inference enabled: %s/%s", provider, model_name)
             test_cases = fetch_live_outputs(test_cases, inference_client)
         except (ValueError, ImportError) as exc:
-            logger.error("Erreur configuration inférence live : %s", exc)
+            logger.error("Live inference configuration error: %s", exc)
             return 1
 
-    # --- LLM-as-a-judge : configuration du juge externe ---
+    # --- LLM-as-a-judge: external judge configuration ---
     judge_client: Any | None = None
     if judge:
         effective_judge_provider = judge_provider or provider
@@ -122,7 +122,7 @@ def _run_benchmark(
                 model=effective_judge_model,
             )
         except (ValueError, ImportError) as exc:
-            logger.error("Erreur configuration juge LLM : %s", exc)
+            logger.error("LLM judge configuration error: %s", exc)
             return 1
 
     evaluators = build_evaluators(judge_client=judge_client)
@@ -138,7 +138,7 @@ def _run_benchmark(
 
     for index, case in enumerate(test_cases, start=1):
         case_id: str = case.get("id", f"case_{index:03d}")
-        logger.info("[%d/%d] Évaluation du cas : %s", index, len(test_cases), case_id)
+        logger.info("[%d/%d] Evaluating case: %s", index, len(test_cases), case_id)
 
         evaluation_results, composite_score, case_passed = evaluate_case(
             case=case,
@@ -149,10 +149,10 @@ def _run_benchmark(
 
         if case_passed:
             passed_count += 1
-            logger.info("  → PASS (score composite: %.4f)", composite_score)
+            logger.info("  -> PASS (composite score: %.4f)", composite_score)
         else:
             failed_count += 1
-            logger.info("  → FAIL (score composite: %.4f)", composite_score)
+            logger.info("  -> FAIL (composite score: %.4f)", composite_score)
 
         case_kwargs: dict[str, Any] = {
             "case_id": case_id,
@@ -170,20 +170,20 @@ def _run_benchmark(
 
     if json_generator is not None:
         report_path = json_generator.save(output_dir=output_dir)
-        logger.info("Rapport JSON : %s", report_path)
+        logger.info("JSON report: %s", report_path)
     if html_generator is not None:
         html_path = html_generator.save(output_dir=output_dir or HTML_REPORT_OUTPUT_DIR)
-        logger.info("Rapport HTML : %s", html_path)
+        logger.info("HTML report: %s", html_path)
 
     total = passed_count + failed_count
     pass_rate = passed_count / total if total > 0 else 0.0
 
     logger.info("=" * 60)
-    logger.info("RÉSULTATS FINAUX")
-    logger.info("Cas traités : %d | Passés : %d | Échoués : %d", total, passed_count, failed_count)
-    logger.info("Pass rate : %.1f%% (cible : 99.0%%)", pass_rate * 100)
+    logger.info("FINAL RESULTS")
+    logger.info("Cases processed: %d | Passed: %d | Failed: %d", total, passed_count, failed_count)
+    logger.info("Pass rate: %.1f%% (target: 99.0%%)", pass_rate * 100)
     logger.info(
-        "Verdict : %s",
+        "Verdict: %s",
         "✓ PRODUCTION READY" if pass_rate >= 0.99 else "✗ BELOW TARGET — DO NOT DEPLOY",
     )
     logger.info("=" * 60)
@@ -192,89 +192,89 @@ def _run_benchmark(
 
 
 def _parse_args() -> argparse.Namespace:
-    """Configure et parse les arguments de la ligne de commande."""
+    """Configure and parse command-line arguments."""
     parser = argparse.ArgumentParser(
         prog="llm-benchmarker",
         description=(
-            "LLM-Benchmarker-Suite — Évaluation de fiabilité des modèles de langage\n"
-            "pour déploiements en production avec objectif de 99%% de pass rate."
+            "LLM-Benchmarker-Suite — Reliability evaluation of language models\n"
+            "for production deployments with a 99%% pass rate target."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Exemples — mode offline :
+Examples — offline mode:
   python main.py --model gpt-4o --test-set safety
   python main.py --model claude-3-5-sonnet --test-set all --verbose --format both
 
-Exemples — mode live (inférence API réelle) :
+Examples — live mode (real API inference):
   python main.py --model gpt-4o --test-set reasoning --live --provider openai
   python main.py --model claude-3-5-sonnet --test-set all --live --provider anthropic
 
-Exemples — avec LLM-as-a-judge :
+Examples — with LLM-as-a-judge:
   python main.py --model gpt-4o --test-set all --live --judge --provider openai
   python main.py --model gpt-4o --test-set reasoning --live --judge --judge-model gpt-4o-mini
 
-Variables d'environnement :
-  OPENAI_API_KEY     Clé API OpenAI (alternative à --api-key avec --provider openai)
-  ANTHROPIC_API_KEY  Clé API Anthropic (alternative à --api-key avec --provider anthropic)
+Environment variables:
+  OPENAI_API_KEY     OpenAI API key (alternative to --api-key with --provider openai)
+  ANTHROPIC_API_KEY  Anthropic API key (alternative to --api-key with --provider anthropic)
 
-Providers supportés : {', '.join(SUPPORTED_PROVIDERS)}
+Supported providers: {', '.join(SUPPORTED_PROVIDERS)}
         """,
     )
 
-    # --- Paramètres principaux ---
+    # --- Main parameters ---
     parser.add_argument(
         "--model",
         type=str,
         required=True,
-        help="Identifiant du modèle évalué (ex: gpt-4o, claude-3-5-sonnet)",
+        help="Identifier of the evaluated model (e.g. gpt-4o, claude-3-5-sonnet)",
     )
     parser.add_argument(
         "--test-set",
         type=str,
         choices=AVAILABLE_TEST_SETS,
         default="all",
-        help=f"Ensemble de tests. Options : {', '.join(AVAILABLE_TEST_SETS)} (défaut: all)",
+        help=f"Test set. Options: {', '.join(AVAILABLE_TEST_SETS)} (default: all)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default=None,
-        help="Répertoire de sortie pour les rapports (défaut: ./reports/)",
+        help="Output directory for reports (default: ./reports/)",
     )
     parser.add_argument(
         "--format",
         type=str,
         choices=[REPORT_FORMAT_JSON, REPORT_FORMAT_HTML, REPORT_FORMAT_BOTH],
         default=REPORT_FORMAT_JSON,
-        help="Format de rapport généré : json, html, ou both (défaut: json)",
+        help="Generated report format: json, html, or both (default: json)",
     )
     parser.add_argument(
         "--verbose",
         action="store_true",
         default=False,
-        help="Affiche les scores détaillés par évaluateur pour chaque cas",
+        help="Display detailed per-evaluator scores for each case",
     )
 
-    # --- Mode live ---
-    live_group = parser.add_argument_group("Inférence live (appels API réels)")
+    # --- Live mode ---
+    live_group = parser.add_argument_group("Live inference (real API calls)")
     live_group.add_argument(
         "--live",
         action="store_true",
         default=False,
-        help="Active le mode live : appelle l'API du modèle au lieu d'utiliser les outputs pré-remplis",
+        help="Enable live mode: calls the model API instead of using pre-filled outputs",
     )
     live_group.add_argument(
         "--provider",
         type=str,
         choices=SUPPORTED_PROVIDERS,
         default="openai",
-        help=f"Provider d'inférence : {', '.join(SUPPORTED_PROVIDERS)} (défaut: openai)",
+        help=f"Inference provider: {', '.join(SUPPORTED_PROVIDERS)} (default: openai)",
     )
     live_group.add_argument(
         "--api-key",
         type=str,
         default=None,
-        help="Clé API du provider (alternative : variable d'environnement OPENAI_API_KEY / ANTHROPIC_API_KEY)",
+        help="Provider API key (alternative: OPENAI_API_KEY / ANTHROPIC_API_KEY environment variable)",
     )
 
     # --- LLM-as-a-judge ---
@@ -283,26 +283,26 @@ Providers supportés : {', '.join(SUPPORTED_PROVIDERS)}
         "--judge",
         action="store_true",
         default=False,
-        help="Active le LLM-as-a-judge comme évaluateur supplémentaire (requiert --api-key ou variable env)",
+        help="Enable LLM-as-a-judge as an additional evaluator (requires --api-key or env variable)",
     )
     judge_group.add_argument(
         "--judge-model",
         type=str,
         default=None,
-        help=f"Modèle juge (défaut: {LLM_JUDGE_DEFAULT_MODEL_OPENAI} pour OpenAI, {LLM_JUDGE_DEFAULT_MODEL_ANTHROPIC} pour Anthropic)",
+        help=f"Judge model (default: {LLM_JUDGE_DEFAULT_MODEL_OPENAI} for OpenAI, {LLM_JUDGE_DEFAULT_MODEL_ANTHROPIC} for Anthropic)",
     )
     judge_group.add_argument(
         "--judge-provider",
         type=str,
         choices=SUPPORTED_PROVIDERS,
         default=None,
-        help="Provider du juge (défaut: même que --provider)",
+        help="Judge provider (default: same as --provider)",
     )
     judge_group.add_argument(
         "--judge-api-key",
         type=str,
         default=None,
-        help="Clé API spécifique pour le juge (défaut: même que --api-key)",
+        help="Specific API key for the judge (default: same as --api-key)",
     )
 
     return parser.parse_args()
@@ -310,8 +310,8 @@ Providers supportés : {', '.join(SUPPORTED_PROVIDERS)}
 
 def _validate_output_dir(raw_path: str | None) -> str | None:
     """
-    Vérifie que le répertoire de sortie ne sort pas du répertoire de travail courant.
-    Lève ValueError si le chemin résolu tente un path traversal.
+    Verifies that the output directory does not escape the current working directory.
+    Raises ValueError if the resolved path attempts a path traversal.
     """
     if raw_path is None:
         return None
@@ -319,8 +319,8 @@ def _validate_output_dir(raw_path: str | None) -> str | None:
     cwd = os.path.realpath(os.getcwd())
     if not resolved.startswith(cwd):
         raise ValueError(
-            f"Répertoire de sortie interdit : '{raw_path}' résout en '{resolved}', "
-            f"hors du répertoire de travail '{cwd}'."
+            f"Forbidden output directory: '{raw_path}' resolves to '{resolved}', "
+            f"outside working directory '{cwd}'."
         )
     return resolved
 
@@ -330,7 +330,7 @@ if __name__ == "__main__":
     try:
         safe_output_dir = _validate_output_dir(args.output_dir)
     except ValueError as validation_error:
-        logger.error("Argument --output-dir invalide : %s", validation_error)
+        logger.error("Invalid --output-dir argument: %s", validation_error)
         sys.exit(1)
     exit_code = _run_benchmark(
         model_name=args.model,
