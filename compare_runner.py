@@ -1,19 +1,19 @@
 """
-LLM-Benchmarker-Suite — Mode comparaison multi-modèles.
+LLM-Benchmarker-Suite — Multi-model comparison mode.
 
-Lance le même ensemble de tests sur plusieurs modèles et compare les résultats
-côte à côte. Supporte le mode offline (model_output pré-rempli) et le mode live
-(appels API réels). Les rapports sont générés par modèle et en comparaison globale.
+Runs the same test set on multiple models and compares results
+side by side. Supports offline mode (pre-filled model_output) and live mode
+(real API calls). Reports are generated per model and as a global comparison.
 
-Usage — mode offline :
+Usage — offline mode:
     python compare_runner.py --models gpt-4o claude-3-5-sonnet --test-set safety
     python compare_runner.py --models gpt-4o gpt-4o-mini --test-set all --format html
 
-Usage — mode live :
+Usage — live mode:
     python compare_runner.py --models gpt-4o gpt-4o-mini --test-set reasoning --live --provider openai
     python compare_runner.py --models claude-3-5-sonnet claude-haiku-4-5-20251001 --live --provider anthropic
 
-Usage — avec LLM-as-a-judge :
+Usage — with LLM-as-a-judge:
     python compare_runner.py --models gpt-4o gpt-4o-mini --test-set all --live --judge --provider openai
 """
 
@@ -67,12 +67,12 @@ def _run_model_benchmark(
     judge_client: Any | None = None,
 ) -> dict[str, Any]:
     """
-    Exécute le benchmark pour un seul modèle et sauvegarde ses rapports individuels.
-    Retourne un dict de statistiques pour la comparaison.
+    Runs the benchmark for a single model and saves its individual reports.
+    Returns a stats dict for the comparison.
     """
-    logger.info("--- Évaluation du modèle : %s ---", model_name)
+    logger.info("--- Evaluating model: %s ---", model_name)
 
-    # Mode live : appel API réel pour ce modèle spécifique
+    # Live mode: real API call for this specific model
     effective_cases = test_cases
     if live:
         try:
@@ -80,7 +80,7 @@ def _run_model_benchmark(
             inference_client = build_api_client(provider=provider, api_key=resolved_key, model=model_name)
             effective_cases = fetch_live_outputs(test_cases, inference_client)
         except (ValueError, ImportError) as exc:
-            logger.error("Erreur inférence live pour '%s' : %s", model_name, exc)
+            logger.error("Live inference error for '%s': %s", model_name, exc)
             return {
                 "model_name": model_name,
                 "error": str(exc),
@@ -157,13 +157,13 @@ def _run_model_benchmark(
 
 def _determine_winner(model_stats: list[dict[str, Any]]) -> tuple[str, str]:
     """
-    Identifie le meilleur modèle par pass rate, puis score moyen en cas d'égalité.
-    Retourne (nom_du_gagnant, raison).
+    Identifies the best model by pass rate, then average score on tie.
+    Returns (winner_name, reason).
     """
-    # Exclure les modèles en erreur
+    # Exclude models with errors
     valid_stats = [s for s in model_stats if "error" not in s]
     if not valid_stats:
-        return model_stats[0]["model_name"], "Aucun modèle valide — erreurs d'inférence"
+        return model_stats[0]["model_name"], "No valid model — inference errors"
 
     sorted_models = sorted(
         valid_stats,
@@ -174,13 +174,13 @@ def _determine_winner(model_stats: list[dict[str, Any]]) -> tuple[str, str]:
     second = sorted_models[1] if len(sorted_models) > 1 else None
 
     if second is None:
-        reason = f"Seul modèle évalué (pass rate: {best['pass_rate_percent']}%)"
+        reason = f"Only evaluated model (pass rate: {best['pass_rate_percent']}%)"
     elif best["pass_rate"] > second["pass_rate"]:
-        reason = f"Meilleur pass rate ({best['pass_rate_percent']}% vs {second['pass_rate_percent']}%)"
+        reason = f"Best pass rate ({best['pass_rate_percent']}% vs {second['pass_rate_percent']}%)"
     else:
         reason = (
-            f"Pass rate égal ({best['pass_rate_percent']}%), "
-            f"meilleur score moyen ({best['avg_score']:.4f} vs {second['avg_score']:.4f})"
+            f"Equal pass rate ({best['pass_rate_percent']}%), "
+            f"better average score ({best['avg_score']:.4f} vs {second['avg_score']:.4f})"
         )
     return best["model_name"], reason
 
@@ -191,7 +191,7 @@ def _save_report_file(
     filename: str,
     is_json: bool,
 ) -> Path:
-    """Sauvegarde un fichier de rapport JSON ou HTML. Retourne le chemin absolu."""
+    """Saves a JSON or HTML report file. Returns the absolute path."""
     fallback = REPORT_OUTPUT_DIR if is_json else HTML_REPORT_OUTPUT_DIR
     target_dir = Path(output_dir or fallback)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -201,7 +201,7 @@ def _save_report_file(
             json.dump(content, file_handle, indent=2, ensure_ascii=False)
         else:
             file_handle.write(str(content))
-    logger.info("Rapport sauvegardé → %s", output_path)
+    logger.info("Report saved -> %s", output_path)
     return output_path.resolve()
 
 
@@ -220,27 +220,27 @@ def _run_comparison(
     judge_api_key: str | None = None,
 ) -> int:
     """
-    Orchestre la comparaison multi-modèles.
-    Retourne 0 si au moins un modèle atteint la cible de 99 %, 1 sinon.
+    Orchestrates the multi-model comparison.
+    Returns 0 if at least one model reaches the 99% target, 1 otherwise.
     """
     logger.info("=" * 60)
-    logger.info("LLM-Benchmarker-Suite — Mode comparaison")
-    logger.info("Modèles : %s", ", ".join(models))
-    logger.info("Ensemble de tests : %s", test_set)
-    logger.info("Mode live : %s", "activé" if live else "désactivé")
+    logger.info("LLM-Benchmarker-Suite — Comparison mode")
+    logger.info("Models: %s", ", ".join(models))
+    logger.info("Test set: %s", test_set)
+    logger.info("Live mode: %s", "enabled" if live else "disabled")
     logger.info("=" * 60)
 
     try:
         test_cases = load_test_cases(test_set)
     except FileNotFoundError as exc:
-        logger.error("Impossible de charger les tests : %s", exc)
+        logger.error("Failed to load tests: %s", exc)
         return 1
 
     if not test_cases:
-        logger.error("Aucun cas de test pour l'ensemble '%s'", test_set)
+        logger.error("No test cases for set '%s'", test_set)
         return 1
 
-    # Préparation du juge partagé entre tous les modèles (économise les tokens)
+    # Prepare shared judge across all models (saves tokens)
     judge_client: Any | None = None
     if judge:
         effective_judge_provider = judge_provider or provider
@@ -259,9 +259,9 @@ def _run_comparison(
                 api_key=resolved_judge_key,
                 model=effective_judge_model,
             )
-            logger.info("LLM-as-a-judge activé : %s/%s", effective_judge_provider, effective_judge_model)
+            logger.info("LLM-as-a-judge enabled: %s/%s", effective_judge_provider, effective_judge_model)
         except (ValueError, ImportError) as exc:
-            logger.error("Erreur configuration juge LLM : %s", exc)
+            logger.error("LLM judge configuration error: %s", exc)
             return 1
 
     comparison_id = datetime.now(tz=timezone.utc).strftime("cmp_%Y%m%d_%H%M%S")
@@ -305,10 +305,10 @@ def _run_comparison(
         )
 
     logger.info("=" * 60)
-    logger.info("RÉSULTATS DE COMPARAISON")
+    logger.info("COMPARISON RESULTS")
     for stats in model_stats:
         if "error" in stats:
-            logger.error("  %s — ERREUR : %s", stats["model_name"], stats["error"])
+            logger.error("  %s — ERROR: %s", stats["model_name"], stats["error"])
         else:
             logger.info(
                 "  %s — pass rate: %.1f%% | avg score: %.4f",
@@ -316,34 +316,34 @@ def _run_comparison(
                 stats["pass_rate_percent"],
                 stats["avg_score"],
             )
-    logger.info("Gagnant : %s (%s)", winner, winner_reason)
+    logger.info("Winner: %s (%s)", winner, winner_reason)
     logger.info("=" * 60)
 
     return 0 if any(s.get("pass_rate", 0) >= 0.99 for s in model_stats) else 1
 
 
 def _parse_args() -> argparse.Namespace:
-    """Configure et parse les arguments de la ligne de commande."""
+    """Configure and parse command-line arguments."""
     parser = argparse.ArgumentParser(
         prog="compare-runner",
         description=(
-            "LLM-Benchmarker-Suite — Comparaison multi-modèles\n"
-            "Lance le même test set sur plusieurs modèles et compare les résultats."
+            "LLM-Benchmarker-Suite — Multi-model comparison\n"
+            "Runs the same test set on multiple models and compares results."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Exemples — mode offline :
+Examples — offline mode:
   python compare_runner.py --models gpt-4o claude-3-5-sonnet --test-set safety
   python compare_runner.py --models gpt-4o gpt-4o-mini --test-set all --format html
 
-Exemples — mode live :
+Examples — live mode:
   python compare_runner.py --models gpt-4o gpt-4o-mini --live --provider openai --test-set reasoning
   python compare_runner.py --models claude-3-5-sonnet claude-haiku-4-5-20251001 --live --provider anthropic
 
-Exemples — avec LLM-as-a-judge :
+Examples — with LLM-as-a-judge:
   python compare_runner.py --models gpt-4o gpt-4o-mini --live --judge --provider openai --test-set all
 
-Providers supportés : {', '.join(SUPPORTED_PROVIDERS)}
+Supported providers: {', '.join(SUPPORTED_PROVIDERS)}
         """,
     )
 
@@ -351,54 +351,54 @@ Providers supportés : {', '.join(SUPPORTED_PROVIDERS)}
         "--models",
         nargs="+",
         required=True,
-        help="Liste des modèles à comparer (ex: gpt-4o claude-3-5-sonnet)",
+        help="List of models to compare (e.g. gpt-4o claude-3-5-sonnet)",
     )
     parser.add_argument(
         "--test-set",
         type=str,
         choices=AVAILABLE_TEST_SETS,
         default="all",
-        help=f"Ensemble de tests. Options : {', '.join(AVAILABLE_TEST_SETS)} (défaut: all)",
+        help=f"Test set. Options: {', '.join(AVAILABLE_TEST_SETS)} (default: all)",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default=None,
-        help="Répertoire de sortie pour les rapports (défaut: ./reports/)",
+        help="Output directory for reports (default: ./reports/)",
     )
     parser.add_argument(
         "--format",
         type=str,
         choices=[REPORT_FORMAT_JSON, REPORT_FORMAT_HTML, REPORT_FORMAT_BOTH],
         default=REPORT_FORMAT_JSON,
-        help="Format des rapports : json, html, ou both (défaut: json)",
+        help="Report format: json, html, or both (default: json)",
     )
     parser.add_argument(
         "--verbose",
         action="store_true",
         default=False,
-        help="Affiche les statuts par cas de test pour chaque modèle",
+        help="Display per-case statuses for each model",
     )
 
-    live_group = parser.add_argument_group("Inférence live")
+    live_group = parser.add_argument_group("Live inference")
     live_group.add_argument(
         "--live",
         action="store_true",
         default=False,
-        help="Active le mode live : appelle l'API de chaque modèle",
+        help="Enable live mode: calls each model's API",
     )
     live_group.add_argument(
         "--provider",
         type=str,
         choices=SUPPORTED_PROVIDERS,
         default="openai",
-        help=f"Provider d'inférence : {', '.join(SUPPORTED_PROVIDERS)} (défaut: openai)",
+        help=f"Inference provider: {', '.join(SUPPORTED_PROVIDERS)} (default: openai)",
     )
     live_group.add_argument(
         "--api-key",
         type=str,
         default=None,
-        help="Clé API du provider (alternative : variable d'environnement OPENAI_API_KEY / ANTHROPIC_API_KEY)",
+        help="Provider API key (alternative: OPENAI_API_KEY / ANTHROPIC_API_KEY environment variable)",
     )
 
     judge_group = parser.add_argument_group("LLM-as-a-judge")
@@ -406,26 +406,26 @@ Providers supportés : {', '.join(SUPPORTED_PROVIDERS)}
         "--judge",
         action="store_true",
         default=False,
-        help="Active le LLM-as-a-judge comme évaluateur supplémentaire",
+        help="Enable LLM-as-a-judge as an additional evaluator",
     )
     judge_group.add_argument(
         "--judge-model",
         type=str,
         default=None,
-        help=f"Modèle juge (défaut: {LLM_JUDGE_DEFAULT_MODEL_OPENAI} / {LLM_JUDGE_DEFAULT_MODEL_ANTHROPIC})",
+        help=f"Judge model (default: {LLM_JUDGE_DEFAULT_MODEL_OPENAI} / {LLM_JUDGE_DEFAULT_MODEL_ANTHROPIC})",
     )
     judge_group.add_argument(
         "--judge-provider",
         type=str,
         choices=SUPPORTED_PROVIDERS,
         default=None,
-        help="Provider du juge (défaut: même que --provider)",
+        help="Judge provider (default: same as --provider)",
     )
     judge_group.add_argument(
         "--judge-api-key",
         type=str,
         default=None,
-        help="Clé API spécifique pour le juge",
+        help="Specific API key for the judge",
     )
 
     return parser.parse_args()
@@ -433,8 +433,8 @@ Providers supportés : {', '.join(SUPPORTED_PROVIDERS)}
 
 def _validate_output_dir(raw_path: str | None) -> str | None:
     """
-    Vérifie que le répertoire de sortie ne sort pas du répertoire de travail courant.
-    Lève ValueError si le chemin résolu tente un path traversal.
+    Verifies that the output directory does not escape the current working directory.
+    Raises ValueError if the resolved path attempts a path traversal.
     """
     if raw_path is None:
         return None
@@ -442,8 +442,8 @@ def _validate_output_dir(raw_path: str | None) -> str | None:
     cwd = os.path.realpath(os.getcwd())
     if not resolved.startswith(cwd):
         raise ValueError(
-            f"Répertoire de sortie interdit : '{raw_path}' résout en '{resolved}', "
-            f"hors du répertoire de travail '{cwd}'."
+            f"Forbidden output directory: '{raw_path}' resolves to '{resolved}', "
+            f"outside working directory '{cwd}'."
         )
     return resolved
 
@@ -451,12 +451,12 @@ def _validate_output_dir(raw_path: str | None) -> str | None:
 if __name__ == "__main__":
     args = _parse_args()
     if len(args.models) < 2:
-        logger.error("Au moins 2 modèles sont requis pour une comparaison.")
+        logger.error("At least 2 models are required for a comparison.")
         sys.exit(1)
     try:
         safe_output_dir = _validate_output_dir(args.output_dir)
     except ValueError as validation_error:
-        logger.error("Argument --output-dir invalide : %s", validation_error)
+        logger.error("Invalid --output-dir argument: %s", validation_error)
         sys.exit(1)
     exit_code = _run_comparison(
         models=args.models,
