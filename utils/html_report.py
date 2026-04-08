@@ -1,13 +1,13 @@
 """
-Générateur de rapport HTML visuel pour le suite LLM-Benchmarker.
+Visual HTML report generator for the LLM-Benchmarker Suite.
 
-Produit un fichier HTML standalone (sans dépendances externes) incluant :
-- Header avec verdict de production
-- Cards statistiques globales
-- Barre de progression du pass rate colorée
-- Tableau détaillé des cas de test
-- Breakdown par évaluateur avec mini-barres
-- Footer horodaté
+Produces a standalone HTML file (no external dependencies) including:
+- Header with production verdict
+- Global statistics cards
+- Color-coded pass rate progress bar
+- Detailed test cases table
+- Per-evaluator breakdown with mini-bars
+- Timestamped footer
 """
 
 from __future__ import annotations
@@ -40,12 +40,12 @@ logger = get_logger(__name__)
 
 
 def _build_header(model_name: str, test_set: str, pass_rate: float, now: datetime) -> str:
-    """Génère le header du rapport avec verdict de production."""
+    """Generates the report header with production verdict."""
     production_ready = pass_rate >= PASS_RATE_TARGET
     verdict_label = "PRODUCTION READY" if production_ready else "NOT PRODUCTION READY"
     verdict_color = "#10b981" if production_ready else "#ef4444"
     badge_bg = "rgba(16,185,129,.25)" if production_ready else "rgba(239,68,68,.25)"
-    # Échappement XSS sur les champs contrôlés par l'utilisateur via CLI
+    # XSS escaping on user-controlled fields from CLI
     safe_model_name = html.escape(model_name)
     safe_test_set = html.escape(test_set)
     return (
@@ -67,7 +67,7 @@ def _build_header(model_name: str, test_set: str, pass_rate: float, now: datetim
 
 
 def _build_progress_section(pass_rate: float) -> str:
-    """Génère la section barre de progression globale."""
+    """Generates the global pass rate progress bar section."""
     color = pick_color(pass_rate)
     bar = render_progress_bar(pass_rate, color, "14px")
     target_pct = round(PASS_RATE_TARGET * 100, 0)
@@ -75,7 +75,7 @@ def _build_progress_section(pass_rate: float) -> str:
         f'<section style="background:#fff;border:1px solid {COLOR_GRAY_BORDER};'
         f'border-radius:12px;padding:20px 24px;margin-bottom:28px;">'
         f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-        f'<span style="font-weight:700;color:{COLOR_TEXT_DARK};font-size:15px;">Pass Rate Global</span>'
+        f'<span style="font-weight:700;color:{COLOR_TEXT_DARK};font-size:15px;">Global Pass Rate</span>'
         f'<span style="font-weight:800;font-size:22px;color:{color};">{round(pass_rate * 100, 1)}%</span></div>'
         f"{bar}"
         f'<div style="display:flex;justify-content:space-between;margin-top:6px;'
@@ -85,7 +85,7 @@ def _build_progress_section(pass_rate: float) -> str:
 
 
 def _build_cases_table(case_results: list[dict[str, Any]]) -> str:
-    """Génère le tableau détaillé des cas de test."""
+    """Generates the detailed test cases table."""
     rows = "".join(render_case_row(c) for c in case_results)
     th_style = (
         f'style="padding:12px 16px;text-align:left;font-size:12px;'
@@ -96,18 +96,18 @@ def _build_cases_table(case_results: list[dict[str, Any]]) -> str:
         f'border-radius:12px;margin-bottom:28px;overflow:hidden;">'
         f'<div style="padding:18px 24px;border-bottom:1px solid {COLOR_GRAY_BORDER};">'
         f'<h2 style="margin:0;font-size:17px;font-weight:700;color:{COLOR_TEXT_DARK};">'
-        f"Résultats par cas de test</h2></div>"
+        f"Results per test case</h2></div>"
         f'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
         f'<thead><tr style="background:{COLOR_GRAY_BG};border-bottom:1px solid {COLOR_GRAY_BORDER};">'
-        f"<th {th_style}>Case ID</th><th {th_style}>Statut</th>"
-        f"<th {th_style}>Score</th><th {th_style}>Évaluateurs</th>"
+        f"<th {th_style}>Case ID</th><th {th_style}>Status</th>"
+        f"<th {th_style}>Score</th><th {th_style}>Evaluators</th>"
         f"<th {th_style}>Prompt</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div></section>"
     )
 
 
 def _build_breakdown_table(evaluator_stats: dict[str, dict[str, Any]]) -> str:
-    """Génère la section breakdown par évaluateur."""
+    """Generates the per-evaluator breakdown section."""
     rows = "".join(render_evaluator_row(name, stats) for name, stats in evaluator_stats.items())
     th_style = (
         f'style="padding:10px 16px;text-align:left;font-size:12px;'
@@ -118,10 +118,10 @@ def _build_breakdown_table(evaluator_stats: dict[str, dict[str, Any]]) -> str:
         f'border-radius:12px;margin-bottom:28px;overflow:hidden;">'
         f'<div style="padding:18px 24px;border-bottom:1px solid {COLOR_GRAY_BORDER};">'
         f'<h2 style="margin:0;font-size:17px;font-weight:700;color:{COLOR_TEXT_DARK};">'
-        f"Breakdown par évaluateur</h2></div>"
+        f"Evaluator Breakdown</h2></div>"
         f'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">'
         f'<thead><tr style="background:{COLOR_GRAY_BG};border-bottom:1px solid {COLOR_GRAY_BORDER};">'
-        f"<th {th_style}>Évaluateur</th><th {th_style}>Runs</th>"
+        f"<th {th_style}>Evaluator</th><th {th_style}>Runs</th>"
         f"<th {th_style}>Pass rate</th><th {th_style}>Avg score</th>"
         f"<th {th_style}>Avg latency</th></tr></thead>"
         f"<tbody>{rows}</tbody></table></div></section>"
@@ -130,11 +130,11 @@ def _build_breakdown_table(evaluator_stats: dict[str, dict[str, Any]]) -> str:
 
 class HtmlReportGenerator:
     """
-    Génère un rapport HTML visuel standalone pour une session de benchmark.
+    Generates a standalone visual HTML report for a benchmark session.
 
-    Le fichier produit ne dépend d'aucune bibliothèque externe (CSS inline,
-    JavaScript minimal). Il peut être ouvert directement dans un navigateur
-    ou intégré dans un pipeline CI/CD pour archivage.
+    The produced file has no external library dependencies (inline CSS,
+    minimal JavaScript). It can be opened directly in a browser or
+    embedded in a CI/CD pipeline for archiving.
     """
 
     def __init__(self, model_name: str, test_set: str) -> None:
@@ -153,7 +153,7 @@ class HtmlReportGenerator:
         composite_score: float,
         passed: bool,
     ) -> None:
-        """Enregistre les résultats d'un cas de test pour le rendu HTML."""
+        """Records the results of a test case for HTML rendering."""
         self._case_results.append(
             {
                 "case_id": case_id,
@@ -174,7 +174,7 @@ class HtmlReportGenerator:
         )
 
     def _build_html(self) -> str:
-        """Assemble le document HTML complet."""
+        """Assembles the complete HTML document."""
         now = datetime.now(tz=timezone.utc)
         total_cases = len(self._case_results)
         passed_count = sum(1 for c in self._case_results if c["passed"])
@@ -205,8 +205,8 @@ class HtmlReportGenerator:
         footer = (
             f'<footer style="text-align:center;padding:20px;color:{COLOR_TEXT_MUTED};'
             f'font-size:12px;border-top:1px solid {COLOR_GRAY_BORDER};margin-top:8px;">'
-            f'Généré par <strong style="color:{COLOR_ACCENT};">LLM-Benchmarker-Suite</strong>'
-            f' — {now.strftime("%Y-%m-%d à %H:%M:%S")} UTC</footer>'
+            f'Generated by <strong style="color:{COLOR_ACCENT};">LLM-Benchmarker-Suite</strong>'
+            f' — {now.strftime("%Y-%m-%d at %H:%M:%S")} UTC</footer>'
         )
 
         body = (
@@ -224,14 +224,14 @@ class HtmlReportGenerator:
 
     def save(self, output_dir: str | None = None) -> Path:
         """
-        Persiste le rapport HTML dans le répertoire de sortie.
-        Retourne le chemin absolu du fichier créé.
+        Persists the HTML report to the output directory.
+        Returns the absolute path of the created file.
         """
         target_dir = Path(output_dir or REPORT_OUTPUT_DIR)
         target_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = self._session_start.strftime("%Y%m%d_%H%M%S")
-        # Sanitisation du nom de modèle pour éviter le path traversal dans le nom de fichier
+        # Sanitise model name to prevent path traversal in filename
         safe_model = re.sub(r"[^a-zA-Z0-9_.-]", "_", self._model_name)
         filename = f"benchmark_{safe_model}_{self._test_set}_{timestamp}.html"
         output_path = target_dir / filename
@@ -244,7 +244,7 @@ class HtmlReportGenerator:
         pass_rate_pct = (passed_count / total_cases * 100) if total_cases > 0 else 0.0
 
         logger.info(
-            "Rapport HTML sauvegardé → %s (pass rate: %.1f%%)",
+            "HTML report saved → %s (pass rate: %.1f%%)",
             output_path,
             pass_rate_pct,
         )
