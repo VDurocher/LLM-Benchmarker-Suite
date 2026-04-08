@@ -1,8 +1,8 @@
 """
-Calcul des statistiques d'évaluation partagées entre les générateurs de rapports.
+Evaluation statistics shared between report generators.
 
-Ce module centralise la fonction `compute_evaluator_stats` pour éviter
-la duplication entre `report_generator.py` et `html_report.py`.
+This module centralizes the `compute_evaluator_stats` function to avoid
+duplication between `report_generator.py` and `html_report.py`.
 """
 
 from __future__ import annotations
@@ -14,12 +14,12 @@ def compute_evaluator_stats(
     case_results: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """
-    Calcule les statistiques agrégées par nom d'évaluateur sur tous les cas.
+    Computes aggregated statistics per evaluator name across all cases.
 
-    Regroupe les runs par évaluateur et calcule pass rate, score moyen,
-    latence moyenne, min/max score et nombre d'erreurs.
+    Groups runs by evaluator and computes pass rate, average score,
+    average latency, min/max score and error count.
     """
-    # Regroupement des runs par nom d'évaluateur
+    # Group runs by evaluator name
     grouped: dict[str, list[dict[str, Any]]] = {}
     for case in case_results:
         for evaluator in case["evaluators"]:
@@ -30,7 +30,7 @@ def compute_evaluator_stats(
 
     result: dict[str, dict[str, Any]] = {}
     for evaluator_name, runs in grouped.items():
-        # Scores valides uniquement (sans erreur)
+        # Valid scores only (without error)
         scores = [run["score"] for run in runs if run.get("error") is None]
         passed_count = sum(1 for run in runs if run["passed"])
         latencies = [run["latency_ms"] for run in runs]
