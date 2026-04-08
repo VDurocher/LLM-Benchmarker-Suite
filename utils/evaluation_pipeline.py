@@ -1,8 +1,8 @@
 """
-Pipeline d'évaluation partagé entre main.py et compare_runner.py.
+Shared evaluation pipeline between main.py and compare_runner.py.
 
-Fournit les fonctions de chargement des cas de test, d'instanciation
-des évaluateurs, de récupération d'outputs live, et d'évaluation unitaire.
+Provides functions for loading test cases, instantiating evaluators,
+fetching live outputs, and running individual evaluations.
 """
 
 from __future__ import annotations
@@ -30,48 +30,48 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Répertoire contenant les fichiers de cas de test
+# Directory containing test case files
 DATA_DIR = Path(__file__).parent.parent / "data"
 
-# Ensembles de tests agrégés par "all"
+# Test sets aggregated by "all"
 _ALL_TEST_SETS = ["safety", "logic", "format", "consistency", "reasoning", "instruction_following"]
 
 
 def load_test_cases(test_set: str) -> list[dict[str, Any]]:
-    """Charge les cas de test depuis les fichiers JSON. 'all' agrège tous les sets."""
+    """Loads test cases from JSON files. 'all' aggregates all sets."""
     if test_set == "all":
         all_cases: list[dict[str, Any]] = []
         for available_set in _ALL_TEST_SETS:
             file_path = DATA_DIR / f"test_cases_{available_set}.json"
             if file_path.exists():
                 all_cases.extend(_load_single_test_set(available_set))
-        logger.info("Total cas de test chargés : %d", len(all_cases))
+        logger.info("Total test cases loaded: %d", len(all_cases))
         return all_cases
     return _load_single_test_set(test_set)
 
 
 def _load_single_test_set(test_set: str) -> list[dict[str, Any]]:
-    """Charge un fichier de cas de test par nom d'ensemble."""
+    """Loads a test case file by set name."""
     file_path = DATA_DIR / f"test_cases_{test_set}.json"
     if not file_path.exists():
-        raise FileNotFoundError(f"Ensemble de tests non trouvé : {file_path}")
+        raise FileNotFoundError(f"Test set not found: {file_path}")
     with open(file_path, encoding="utf-8") as file_handle:
         data = json.load(file_handle)
     cases = data.get("cases", [])
-    logger.info("Chargement de '%s' : %d cas de test", test_set, len(cases))
+    logger.info("Loading '%s': %d test cases", test_set, len(cases))
     return cases
 
 
 def build_evaluators(judge_client: Any | None = None) -> dict[str, Any]:
     """
-    Instancie tous les évaluateurs disponibles.
+    Instantiates all available evaluators.
 
     Args:
-        judge_client: Instance de LLMClient pour le juge LLM (optionnel).
-                      Si None, le juge LLM n'est pas inclus dans le pipeline.
+        judge_client: LLMClient instance for the LLM judge (optional).
+                      If None, the LLM judge is not included in the pipeline.
 
     Returns:
-        Dict nom → instance d'évaluateur.
+        Dict name -> evaluator instance.
     """
     from evaluators.llm_judge_evaluator import LLMJudgeEvaluator
 
@@ -86,7 +86,7 @@ def build_evaluators(judge_client: Any | None = None) -> dict[str, Any]:
     if judge_client is not None:
         evaluators["llm_judge"] = LLMJudgeEvaluator(judge_client=judge_client)
         logger.info(
-            "LLM-as-a-judge activé — modèle juge : %s (%s)",
+            "LLM-as-a-judge enabled — judge model: %s (%s)",
             judge_client.model,
             judge_client.provider,
         )
@@ -96,22 +96,22 @@ def build_evaluators(judge_client: Any | None = None) -> dict[str, Any]:
 
 def build_api_client(provider: str, api_key: str, model: str) -> Any:
     """
-    Instancie le client d'inférence live approprié selon le provider.
+    Instantiates the appropriate live inference client based on the provider.
 
     Args:
-        provider: "openai" ou "anthropic".
-        api_key: Clé d'API du provider.
-        model: Identifiant du modèle cible.
+        provider: "openai" or "anthropic".
+        api_key: Provider API key.
+        model: Target model identifier.
 
     Returns:
-        Instance de LLMClient (OpenAIClient ou AnthropicClient).
+        LLMClient instance (OpenAIClient or AnthropicClient).
 
     Raises:
-        ValueError: Si le provider n'est pas supporté.
+        ValueError: If the provider is not supported.
     """
     if provider not in SUPPORTED_PROVIDERS:
         raise ValueError(
-            f"Provider non supporté : '{provider}'. Valeurs acceptées : {SUPPORTED_PROVIDERS}"
+            f"Unsupported provider: '{provider}'. Accepted values: {SUPPORTED_PROVIDERS}"
         )
 
     if provider == "openai":
@@ -128,18 +128,18 @@ def fetch_live_outputs(
     force_refresh: bool = False,
 ) -> list[dict[str, Any]]:
     """
-    Remplace les `model_output` vides en appelant l'API live du modèle.
+    Replaces empty `model_output` by calling the model's live API.
 
-    En mode live, les cas de test n'ont pas besoin d'un `model_output` pré-rempli.
-    Cette fonction appelle le modèle pour chaque cas et injecte la réponse.
+    In live mode, test cases do not need a pre-filled `model_output`.
+    This function calls the model for each case and injects the response.
 
     Args:
-        test_cases: Liste des cas de test (dictionnaires).
-        client: Client d'inférence LLM configuré.
-        force_refresh: Si True, remplace aussi les outputs déjà remplis.
+        test_cases: List of test cases (dictionaries).
+        client: Configured LLM inference client.
+        force_refresh: If True, also replaces already-filled outputs.
 
     Returns:
-        Liste de cas de test enrichis avec les outputs du modèle.
+        List of test cases enriched with model outputs.
     """
     enriched: list[dict[str, Any]] = []
 
@@ -148,21 +148,21 @@ def fetch_live_outputs(
         existing_output: str = case.get("model_output", "")
 
         if existing_output and not force_refresh:
-            # Output déjà présent — pas d'appel API nécessaire
+            # Output already present — no API call needed
             enriched.append(case)
             continue
 
         prompt: str = case.get("prompt", "")
-        logger.info("[%d/%d] Inférence live — cas : %s (modèle : %s)", index, len(test_cases), case_id, client.model)
+        logger.info("[%d/%d] Live inference — case: %s (model: %s)", index, len(test_cases), case_id, client.model)
 
         try:
             model_output = client.complete(prompt=prompt)
             updated_case = {**case, "model_output": model_output}
             enriched.append(updated_case)
-            logger.info("  → Réponse reçue (%d caractères)", len(model_output))
+            logger.info("  -> Response received (%d characters)", len(model_output))
         except RuntimeError as exc:
-            logger.error("  → Erreur inférence pour '%s' : %s — cas ignoré", case_id, exc)
-            # Conserver le cas avec output vide pour ne pas bloquer le pipeline
+            logger.error("  -> Inference error for '%s': %s — case skipped", case_id, exc)
+            # Keep the case with empty output to avoid blocking the pipeline
             enriched.append(case)
 
     return enriched
@@ -170,19 +170,19 @@ def fetch_live_outputs(
 
 def resolve_api_key(provider: str, explicit_key: str | None) -> str:
     """
-    Résout la clé API depuis l'argument CLI ou les variables d'environnement.
+    Resolves the API key from the CLI argument or environment variables.
 
-    Priorité : argument explicite > variable d'environnement.
+    Priority: explicit argument > environment variable.
 
     Args:
-        provider: "openai" ou "anthropic".
-        explicit_key: Clé fournie explicitement via --api-key (peut être None).
+        provider: "openai" or "anthropic".
+        explicit_key: Key explicitly provided via --api-key (can be None).
 
     Returns:
-        La clé API résolue.
+        The resolved API key.
 
     Raises:
-        ValueError: Si aucune clé n'est disponible.
+        ValueError: If no key is available.
     """
     if explicit_key:
         return explicit_key
@@ -190,12 +190,12 @@ def resolve_api_key(provider: str, explicit_key: str | None) -> str:
     env_var = "OPENAI_API_KEY" if provider == "openai" else "ANTHROPIC_API_KEY"
     env_key = os.environ.get(env_var)
     if env_key:
-        logger.info("Clé API résolue depuis la variable d'environnement %s", env_var)
+        logger.info("API key resolved from environment variable %s", env_var)
         return env_key
 
     raise ValueError(
-        f"Aucune clé API trouvée pour le provider '{provider}'. "
-        f"Fournissez --api-key ou définissez la variable d'environnement {env_var}."
+        f"No API key found for provider '{provider}'. "
+        f"Provide --api-key or set the environment variable {env_var}."
     )
 
 
@@ -206,11 +206,11 @@ def evaluate_case(
     verbose: bool = False,
 ) -> tuple[list[EvaluationResult], float, bool]:
     """
-    Évalue un cas de test avec les évaluateurs applicables.
-    Retourne (résultats, score_composite, passed).
+    Evaluates a test case with the applicable evaluators.
+    Returns (results, composite_score, passed).
 
-    Le score composite est normalisé par la somme des poids effectivement utilisés,
-    ce qui garantit un résultat cohérent quelle que soit la combinaison d'évaluateurs.
+    The composite score is normalized by the sum of weights actually used,
+    which guarantees a consistent result regardless of the evaluator combination.
     """
     if weights is None:
         weights = DEFAULT_WEIGHTS
@@ -221,7 +221,7 @@ def evaluate_case(
     metadata: dict[str, Any] = case.get("metadata", {})
     applicable: list[str] = metadata.get("evaluators", ["similarity", "hallucination", "format"])
 
-    # Pondération par évaluateur — le LLM judge utilise son propre poids fixe
+    # Weight per evaluator — the LLM judge uses its own fixed weight
     weight_map = {
         "similarity": weights.similarity,
         "hallucination": weights.hallucination,
@@ -237,7 +237,7 @@ def evaluate_case(
 
     for ev_name in applicable:
         if ev_name not in evaluators:
-            logger.warning("Évaluateur inconnu ou non configuré : '%s' — ignoré", ev_name)
+            logger.warning("Unknown or unconfigured evaluator: '%s' — skipped", ev_name)
             continue
         result = evaluators[ev_name].evaluate(
             prompt=prompt,
@@ -260,7 +260,7 @@ def evaluate_case(
                 result.latency_ms,
             )
             if result.error:
-                logger.warning("    Erreur évaluateur: %s", result.error)
+                logger.warning("    Evaluator error: %s", result.error)
 
     composite_score = (weighted_score / total_weight) if total_weight > 0 else 0.0
     case_passed = all(result.passed for result in results if result.error is None)
