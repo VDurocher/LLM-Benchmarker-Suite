@@ -1,8 +1,8 @@
 """
-Contrat de base pour tous les évaluateurs du suite LLM-Benchmarker.
+Base contract for all LLM-Benchmarker suite evaluators.
 
-Toute nouvelle dimension d'évaluation doit hériter de BaseEvaluator
-et implémenter la méthode `evaluate()`.
+Any new evaluation dimension must inherit from BaseEvaluator
+and implement the `evaluate()` method.
 """
 
 from __future__ import annotations
@@ -16,15 +16,15 @@ from typing import Any
 @dataclass
 class EvaluationResult:
     """
-    Résultat standardisé retourné par chaque évaluateur.
+    Standardized result returned by each evaluator.
 
     Attributes:
-        evaluator_name: Identifiant lisible de l'évaluateur.
-        passed: True si le test passe les seuils configurés.
-        score: Score normalisé entre 0.0 et 1.0.
-        details: Métadonnées spécifiques à l'évaluateur (scores intermédiaires, etc.).
-        error: Message d'erreur si l'évaluation a échoué.
-        latency_ms: Temps d'exécution de l'évaluation en millisecondes.
+        evaluator_name: Human-readable evaluator identifier.
+        passed: True if the test passes the configured thresholds.
+        score: Normalized score between 0.0 and 1.0.
+        details: Evaluator-specific metadata (intermediate scores, etc.).
+        error: Error message if evaluation failed.
+        latency_ms: Evaluation execution time in milliseconds.
     """
 
     evaluator_name: str
@@ -37,16 +37,16 @@ class EvaluationResult:
     def __post_init__(self) -> None:
         if not 0.0 <= self.score <= 1.0:
             raise ValueError(
-                f"Le score doit être compris entre 0.0 et 1.0, obtenu : {self.score}"
+                f"Score must be between 0.0 and 1.0, got: {self.score}"
             )
 
 
 class BaseEvaluator(ABC):
     """
-    Classe abstraite définissant l'interface commune de tous les évaluateurs.
+    Abstract class defining the common interface for all evaluators.
 
-    Pattern utilisé : Template Method — les sous-classes implémentent `_run_evaluation`
-    tandis que `evaluate()` gère la mesure de latence et la gestion des erreurs.
+    Pattern used: Template Method — subclasses implement `_run_evaluation`
+    while `evaluate()` handles latency measurement and error handling.
     """
 
     def __init__(self, name: str, threshold: float = 0.5) -> None:
@@ -69,8 +69,8 @@ class BaseEvaluator(ABC):
         metadata: dict[str, Any] | None = None,
     ) -> EvaluationResult:
         """
-        Point d'entrée public — mesure la latence et délègue à _run_evaluation.
-        Ne lève jamais d'exception : les erreurs sont encapsulées dans EvaluationResult.
+        Public entry point — measures latency and delegates to _run_evaluation.
+        Never raises exceptions: errors are encapsulated in EvaluationResult.
         """
         start = time.perf_counter()
         try:
@@ -81,7 +81,7 @@ class BaseEvaluator(ABC):
                 metadata=metadata or {},
             )
         except Exception as exc:
-            # Isolation des pannes — un évaluateur défaillant ne bloque pas le pipeline
+            # Fault isolation — a failing evaluator does not block the pipeline
             result = EvaluationResult(
                 evaluator_name=self._name,
                 passed=False,
@@ -102,5 +102,5 @@ class BaseEvaluator(ABC):
         model_output: str,
         metadata: dict[str, Any],
     ) -> EvaluationResult:
-        """Logique d'évaluation propre à chaque sous-classe."""
+        """Evaluation logic specific to each subclass."""
         ...
