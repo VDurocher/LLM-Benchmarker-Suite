@@ -1,16 +1,16 @@
-# Dépendances de production — LLM-Benchmarker-Suite
-# Python 3.11+ requis
+# Production dependencies — LLM-Benchmarker-Suite
+# Python 3.11+ required
 
-# Traitement NLP et vectorisation TF-IDF
+# NLP processing and TF-IDF vectorisation
 scikit-learn>=1.4.0
 
-# Validation JSON Schema (Draft-7)
+# JSON Schema validation (Draft-7)
 jsonschema>=4.21.0
 
-# Calcul matriciel (dépendance de scikit-learn)
+# Matrix computation (scikit-learn dependency)
 numpy>=1.26.0
 
-# Inférence live et LLM-as-a-judge — optionnel selon le provider utilisé
-# Installez uniquement le provider dont vous avez besoin :
-openai>=1.30.0
-anthropic>=0.18.0
+# Live inference and LLM-as-a-judge — optional depending on the provider used
+# Install only the provider you need:
+openai>=1.78.0
+anthropic>=0.49.0
